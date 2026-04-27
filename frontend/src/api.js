@@ -1,10 +1,22 @@
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: "http://127.0.0.1:5000",
-  headers: {
-    "Content-Type": "application/json",
-  },
+const API = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
 });
 
-export default api;
+// Example STK Push call
+export const initiateSTKPush = async (phone, amount) => {
+  try {
+    const res = await API.post("/stkpush", {
+      phone,
+      amount,
+    });
+
+    return res.data;
+  } catch (error) {
+    console.error("API Error:", error);
+    return { success: false };
+  }
+};
+
+export default API;
