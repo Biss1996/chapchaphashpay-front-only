@@ -1,20 +1,7 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+const axios = require("axios");
 
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-// Test route (Render will hit this)
-app.get("/", (req, res) => {
-  res.send("Backend is live 🚀");
-});
-
-// STK Push placeholder endpoint (you will connect real Daraja here)
-app.post("/stkpush", (req, res) => {
-  const { phone, amount } = req.body;
+app.post("/stkpush", async (req, res) => {
+  const { phone, amount, reference } = req.body;
 
   if (!phone || !amount) {
     return res.status(400).json({
@@ -23,19 +10,34 @@ app.post("/stkpush", (req, res) => {
     });
   }
 
-  // TODO: integrate real Safaricom STK Push here
-  res.json({
-    success: true,
-    message: "STK Push initiated (demo)",
-    data: {
-      phone,
-      amount,
-    },
-  });
-});
+  try {
+    const response = await axios.post(
+      "https://api.hashback.co.ke/stkpush", // confirm from HashPay docs
+      {
+        phone,
+        amount,
+        reference,
+        callback_url: "https://talahashpay.onrender.com/callback"
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.HASHPAY_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-const PORT = process.env.PORT || 5000;
+    console.log("HashPay response:", response.data);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    return res.json(response.data);
+
+  } catch (error) {
+    console.error("HashPay error:", error.response?.data || error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "STK Push failed",
+      error: error.response?.data,
+    });
+  }
 });
