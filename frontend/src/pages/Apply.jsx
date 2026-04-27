@@ -86,7 +86,6 @@ export default function Apply() {
             }).then((result) => {
               if (result.isConfirmed) {
                 // ✅ FIX 1: Re-write sessionStorage right before navigating
-                // Ensures data is never lost due to timing issues on deployed env
                 const current = JSON.parse(
                   sessionStorage.getItem("myLoan") || "{}"
                 );
@@ -99,12 +98,9 @@ export default function Apply() {
                   })
                 );
 
-                // ✅ FIX 2: Single navigate inside setTimeout
-                // Gives Swal time to fully unmount before React Router navigates
-                // Removes window.location.href which caused full reload + state loss
-                setTimeout(() => {
-                  navigate("/payment");
-                }, 100);
+                // ✅ FIX 2: replace:true prevents "skippable history" browser block
+                // No setTimeout — keeping it close to the user gesture
+                navigate("/payment", { replace: true });
               }
             });
           }
