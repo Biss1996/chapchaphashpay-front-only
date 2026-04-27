@@ -1,19 +1,5 @@
-const express = require("express");
-const cors = require("cors");
 const axios = require("axios");
-require("dotenv").config();
 
-const app = express(); // ✅ MUST COME BEFORE ROUTES
-
-app.use(cors());
-app.use(express.json());
-
-/* ------------------ TEST ROUTE ------------------ */
-app.get("/", (req, res) => {
-  res.send("Backend is live 🚀");
-});
-
-/* ------------------ STK PUSH ------------------ */
 app.post("/stkpush", async (req, res) => {
   const { phone, amount, reference } = req.body;
 
@@ -26,16 +12,16 @@ app.post("/stkpush", async (req, res) => {
 
   try {
     const response = await axios.post(
-      "https://api.hashback.co.ke/stkpush", // ⚠️ confirm from docs
+      "https://api.hashback.co.ke/initiatestk",
       {
-        phone,
-        amount,
-        reference,
-        callback_url: "https://talahashpay.onrender.com/callback"
+        api_key: process.env.HASHPAY_API_KEY,
+        account_id: process.env.HASHPAY_ACCOUNT_ID,
+        amount: String(amount), // must be string
+        msisdn: phone,          // ⚠️ field name must be msisdn
+        reference: reference || `LOAN-${Date.now()}`
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.HASHPAY_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -51,14 +37,7 @@ app.post("/stkpush", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "STK Push failed",
-      error: error.response?.data,
+      error: error.response?.data || error.message,
     });
   }
-});
-
-/* ------------------ START SERVER ------------------ */
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
 });
