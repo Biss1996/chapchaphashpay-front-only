@@ -13,11 +13,12 @@ export const initiateSTKPush = async (phone, amount) => {
     const res = await API.post("/stkpush", {
       phone,
       amount,
+      reference: `LOAN-${Date.now()}`, // ✅ REQUIRED
     });
 
     return res.data;
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("API Error:", error.response?.data || error.message);
     return { success: false };
   }
 };
