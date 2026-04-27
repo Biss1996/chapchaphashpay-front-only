@@ -1,5 +1,19 @@
+const express = require("express");
+const cors = require("cors");
 const axios = require("axios");
+require("dotenv").config();
 
+const app = express(); // ✅ MUST COME BEFORE ROUTES
+
+app.use(cors());
+app.use(express.json());
+
+/* ------------------ TEST ROUTE ------------------ */
+app.get("/", (req, res) => {
+  res.send("Backend is live 🚀");
+});
+
+/* ------------------ STK PUSH ------------------ */
 app.post("/stkpush", async (req, res) => {
   const { phone, amount, reference } = req.body;
 
@@ -12,7 +26,7 @@ app.post("/stkpush", async (req, res) => {
 
   try {
     const response = await axios.post(
-      "https://api.hashback.co.ke/stkpush", // confirm from HashPay docs
+      "https://api.hashback.co.ke/stkpush", // ⚠️ confirm from docs
       {
         phone,
         amount,
@@ -29,15 +43,22 @@ app.post("/stkpush", async (req, res) => {
 
     console.log("HashPay response:", response.data);
 
-    return res.json(response.data);
+    res.json(response.data);
 
   } catch (error) {
     console.error("HashPay error:", error.response?.data || error.message);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "STK Push failed",
       error: error.response?.data,
     });
   }
+});
+
+/* ------------------ START SERVER ------------------ */
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
