@@ -38,7 +38,6 @@ export default function Apply() {
     sessionStorage.setItem("myLoan", JSON.stringify(updated));
   };
 
-  // ✅ NEW: Smart animated eligibility check
   const handleSubmit = async () => {
     if (!selectedLoan) {
       toast.error("Please select a loan amount");
@@ -54,6 +53,7 @@ export default function Apply() {
     ];
 
     let step = 0;
+    let interval = null;
 
     Swal.fire({
       title: "Processing Your Loan",
@@ -63,13 +63,11 @@ export default function Apply() {
       didOpen: () => {
         Swal.showLoading();
 
-        const interval = setInterval(() => {
+        interval = setInterval(() => {
           step++;
 
           if (step < steps.length) {
-            Swal.update({
-              html: steps[step],
-            });
+            Swal.update({ html: steps[step] });
           } else {
             clearInterval(interval);
 
@@ -84,19 +82,31 @@ export default function Apply() {
               `,
               confirmButtonText: "Continue",
               confirmButtonColor: "#0ea5e9",
-            }).then(async (result) => {
-  if (result.isConfirmed) {
-    await new Promise((r) => setTimeout(r, 200));
+              allowOutsideClick: false,
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // ✅ FIX 1: Re-write sessionStorage right before navigating
+                // Ensures data is never lost due to timing issues on deployed env
+                const current = JSON.parse(
+                  sessionStorage.getItem("myLoan") || "{}"
+                );
+                sessionStorage.setItem(
+                  "myLoan",
+                  JSON.stringify({
+                    ...current,
+                    loan_amount: selectedLoan.amount,
+                    processing_fee: selectedLoan.fee,
+                  })
+                );
 
-    // primary navigation
-    navigate("/payment");
-
-    // fallback (ensures 100% redirect)
-    setTimeout(() => {
-      window.location.href = "/payment";
-    }, 300);
-  }
-});
+                // ✅ FIX 2: Single navigate inside setTimeout
+                // Gives Swal time to fully unmount before React Router navigates
+                // Removes window.location.href which caused full reload + state loss
+                setTimeout(() => {
+                  navigate("/payment");
+                }, 100);
+              }
+            });
           }
         }, 1200);
       },
@@ -105,7 +115,6 @@ export default function Apply() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-emerald-50 px-4 py-10">
-
       <div className="max-w-lg mx-auto">
 
         {/* Header Card */}
@@ -126,30 +135,27 @@ export default function Apply() {
           </div>
         </div>
 
-        {/* Loans */}
+        {/* Loans Grid */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
-
           <h2 className="text-center font-semibold text-gray-700 mb-4">
             Select Loan Amount
           </h2>
 
           <div className="grid grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
-
             {loans.map((loan, index) => (
               <div
                 key={index}
                 onClick={() => handleSelect(loan)}
                 className={`cursor-pointer rounded-xl p-4 text-center border transition-all duration-200
-                ${
-                  selectedLoan?.amount === loan.amount
-                    ? "bg-sky-50 border-sky-500 shadow-md scale-[1.02]"
-                    : "bg-gray-50 border-gray-100 hover:border-sky-300 hover:shadow"
-                }`}
+                  ${
+                    selectedLoan?.amount === loan.amount
+                      ? "bg-sky-50 border-sky-500 shadow-md scale-[1.02]"
+                      : "bg-gray-50 border-gray-100 hover:border-sky-300 hover:shadow"
+                  }`}
               >
                 <p className="font-bold text-gray-800 text-lg">
                   KES {loan.amount.toLocaleString()}
                 </p>
-
                 <p className="text-xs text-gray-500 mt-1">
                   Fee: <span className="font-semibold">KES {loan.fee}</span>
                 </p>
@@ -157,18 +163,17 @@ export default function Apply() {
             ))}
           </div>
 
-          {/* Selected */}
+          {/* Selected Summary */}
           {selectedLoan && (
             <div className="mt-5 bg-sky-50 border border-sky-100 rounded-xl p-4 text-sm">
               <p>
-                Selected:{" "}
-                <b>KES {selectedLoan.amount.toLocaleString()}</b>
+                Selected: <b>KES {selectedLoan.amount.toLocaleString()}</b>
               </p>
               <p>Processing Fee: KES {selectedLoan.fee}</p>
             </div>
           )}
 
-          {/* CTA */}
+          {/* CTA Button */}
           <button
             onClick={handleSubmit}
             className={`w-full mt-6 py-3 rounded-xl font-bold text-white transition-all
