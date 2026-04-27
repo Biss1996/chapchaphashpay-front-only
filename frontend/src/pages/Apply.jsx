@@ -84,9 +84,19 @@ export default function Apply() {
               `,
               confirmButtonText: "Continue",
               confirmButtonColor: "#0ea5e9",
-            }).then(() => {
-              navigate("/payment");
-            });
+            }).then(async (result) => {
+  if (result.isConfirmed) {
+    await new Promise((r) => setTimeout(r, 200));
+
+    // primary navigation
+    navigate("/payment");
+
+    // fallback (ensures 100% redirect)
+    setTimeout(() => {
+      window.location.href = "/payment";
+    }, 300);
+  }
+});
           }
         }, 1200);
       },
