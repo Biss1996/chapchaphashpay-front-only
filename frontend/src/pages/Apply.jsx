@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import Swal from "sweetalert2";
 
 export default function Apply() {
   const [selectedLoan, setSelectedLoan] = useState(null);
@@ -38,75 +37,25 @@ export default function Apply() {
     sessionStorage.setItem("myLoan", JSON.stringify(updated));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!selectedLoan) {
       toast.error("Please select a loan amount");
       return;
     }
 
-    const steps = [
-      "Checking M-Pesa history...",
-      "Analyzing credit profile...",
-      "Verifying identity...",
-      "Calculating eligibility score...",
-      "Final approval in progress...",
-    ];
+    // ✅ Write sessionStorage before navigating
+    const current = JSON.parse(sessionStorage.getItem("myLoan") || "{}");
+    sessionStorage.setItem(
+      "myLoan",
+      JSON.stringify({
+        ...current,
+        loan_amount: selectedLoan.amount,
+        processing_fee: selectedLoan.fee,
+      })
+    );
 
-    let step = 0;
-    let interval = null;
-
-    Swal.fire({
-      title: "Processing Your Loan",
-      html: steps[step],
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-
-        interval = setInterval(() => {
-          step++;
-
-          if (step < steps.length) {
-            Swal.update({ html: steps[step] });
-          } else {
-            clearInterval(interval);
-
-            Swal.fire({
-              icon: "success",
-              title: "Congratulations 🎉",
-              html: `
-                You have been <b>pre-approved</b> for<br/>
-                <h2 style="margin-top:10px;color:#0ea5e9;">
-                  KES ${selectedLoan.amount.toLocaleString()}
-                </h2>
-              `,
-              confirmButtonText: "Continue",
-              confirmButtonColor: "#0ea5e9",
-              allowOutsideClick: false,
-            }).then((result) => {
-              if (result.isConfirmed) {
-                // ✅ FIX 1: Re-write sessionStorage right before navigating
-                const current = JSON.parse(
-                  sessionStorage.getItem("myLoan") || "{}"
-                );
-                sessionStorage.setItem(
-                  "myLoan",
-                  JSON.stringify({
-                    ...current,
-                    loan_amount: selectedLoan.amount,
-                    processing_fee: selectedLoan.fee,
-                  })
-                );
-
-                // ✅ FIX 2: replace:true prevents "skippable history" browser block
-                // No setTimeout — keeping it close to the user gesture
-                navigate("/payment", { replace: true });
-              }
-            });
-          }
-        }, 1200);
-      },
-    });
+    // ✅ Direct navigate — no Swal, no setTimeout
+    navigate("/payment", { replace: true });
   };
 
   return (
