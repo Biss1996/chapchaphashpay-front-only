@@ -59,7 +59,7 @@ export default function Dashboard() {
 
       {/* Header */}
       <div className="bg-black text-white p-4 text-center font-bold">
-        Tala Mkopo Hela
+        Tala HashPay Loans
       </div>
 
       {/* Nav */}
