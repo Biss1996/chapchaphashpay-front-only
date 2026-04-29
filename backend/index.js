@@ -15,10 +15,10 @@ app.use(helmet());
 app.use(
   cors({
     origin: [
-      "https://talahashpay.vercel.app/",
-      "https://talahashpay.com/",
+      "https://talahashpay.vercel.app",
+      "https://talahashpay.com",
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );
@@ -34,7 +34,7 @@ const generalLimiter = rateLimit({
   },
 });
 
-const paymentLimiter = rateLimit({
+const stkLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 10,
   message: {
@@ -83,7 +83,7 @@ const cleanReference = (reference) => {
 };
 
 /* ------------------ STK PUSH ------------------ */
-app.post("/stkpush", paymentLimiter, speedLimiter, async (req, res) => {
+app.post("/stkpush", stkLimiter, speedLimiter, async (req, res) => {
   const { phone, amount, reference } = req.body;
 
   if (!phone || !amount) {
@@ -163,7 +163,7 @@ app.post("/stkpush", paymentLimiter, speedLimiter, async (req, res) => {
 });
 
 /* ------------------ CHECK TRANSACTION STATUS ------------------ */
-app.post("/transaction-status", paymentLimiter, async (req, res) => {
+app.post("/transaction-status", async (req, res) => {
   const { checkoutId } = req.body;
 
   if (!checkoutId || typeof checkoutId !== "string") {
