@@ -51,9 +51,23 @@ app.post("/stkpush", async (req, res) => {
       }
     );
 
-    console.log("HashPay STK response:", response.data);
+    const hashpayData = response.data;
 
-    return res.json(response.data);
+    console.log("HashPay STK response:", hashpayData);
+
+    const checkoutId =
+      hashpayData.checkout_id ||
+      hashpayData.checkoutId ||
+      hashpayData.CheckoutRequestID ||
+      hashpayData.CheckoutID ||
+      hashpayData.checkoutid;
+
+    return res.json({
+      success: Boolean(checkoutId) || hashpayData.success === true || hashpayData.success === "true",
+      message: hashpayData.message || "STK push initiated",
+      checkout_id: checkoutId,
+      raw: hashpayData,
+    });
   } catch (error) {
     console.error("HashPay STK error:", error.response?.data || error.message);
 

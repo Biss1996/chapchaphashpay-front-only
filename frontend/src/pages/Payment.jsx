@@ -31,7 +31,7 @@ export default function Payment() {
 
   const checkPaymentStatus = (checkoutId) => {
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 40;
 
     const interval = setInterval(async () => {
       attempts++;
@@ -40,9 +40,13 @@ export default function Payment() {
         const status = await checkHashpayStatus(checkoutId);
         console.log("Payment status:", status);
 
-        if (status.ResultCode === "0" || status.ResultCode === 0) {
+        const resultCode = String(status.ResultCode ?? "");
+
+        if (resultCode === "0") {
           clearInterval(interval);
           setLoading(false);
+
+          sessionStorage.setItem("payment_status", "completed");
 
           Swal.fire({
             title: "Payment Confirmed ✅",
@@ -57,16 +61,22 @@ export default function Payment() {
         }
 
         if (
-          status.ResultCode &&
-          status.ResultCode !== "0" &&
-          status.ResultCode !== 0
+          resultCode === "" ||
+          resultCode === "null" ||
+          status.ResponseCode === "0" ||
+          status.ResponseCode === 0
         ) {
+          console.log("Payment still pending...");
+          return;
+        }
+
+        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001") {
           clearInterval(interval);
           setLoading(false);
 
           Swal.fire({
             title: "Payment Failed",
-            text: status.ResultDesc || "Payment was cancelled or not completed.",
+            text: status.ResultDesc || "Payment was cancelled or failed.",
             icon: "error",
           });
 
@@ -79,7 +89,7 @@ export default function Payment() {
 
           Swal.fire({
             title: "Payment Not Confirmed",
-            text: "We could not confirm your payment. Please try again.",
+            text: "Payment may have been received, but confirmation is delayed. Please contact support.",
             icon: "warning",
           });
         }
@@ -118,9 +128,20 @@ export default function Payment() {
         `LOAN-${Date.now()}`
       );
 
-      console.log("STK response:", response);
+      console.log("FULL STK RESPONSE:", response);
 
-      if (response.success && response.checkout_id) {
+      const checkoutId =
+        response.checkout_id ||
+        response.checkoutId ||
+        response.CheckoutRequestID ||
+        response.CheckoutID ||
+        response.checkoutid ||
+        response.raw?.checkout_id ||
+        response.raw?.checkoutId ||
+        response.raw?.CheckoutRequestID ||
+        response.raw?.CheckoutID;
+
+      if (checkoutId) {
         toast.success("STK Push sent!");
 
         Swal.fire({
@@ -134,7 +155,7 @@ export default function Payment() {
           },
         });
 
-        checkPaymentStatus(response.checkout_id);
+        checkPaymentStatus(checkoutId);
       } else {
         setLoading(false);
 
