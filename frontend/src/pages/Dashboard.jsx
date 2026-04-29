@@ -59,7 +59,7 @@ export default function Dashboard() {
 
       {/* Header */}
       <div className="bg-black text-white p-4 text-center font-bold">
-        Tala HashPay Loans
+        Mkopo Chapchap Loans
       </div>
 
       {/* Nav */}
@@ -115,7 +115,7 @@ export default function Dashboard() {
             <div>
               <p className="text-gray-500">Reference</p>
               <p className="font-bold">
-                Tala-{generateRef()}
+                Mkopo Chapchap-{generateRef()}
               </p>
             </div>
 

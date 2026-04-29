@@ -11,7 +11,7 @@ export default function Navbar() {
           <div className="flex items-center gap-2 font-bold text-xl">
             <i className="fas fa-bolt text-sky-500 text-2xl"></i>
             <span className="bg-gradient-to-r from-sky-500 to-emerald-500 bg-clip-text text-transparent">
-              Tala HashPay Loans
+              Mkopo Chapchap Loans
             </span>
           </div>
 

@@ -144,7 +144,7 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className="bg-slate-900 text-white text-center p-10">
-        © 2025 Tala HashPay. All rights reserved.
+        © 2025 Mkopo Chapchap. All rights reserved.
       </footer>
     </div>
   );
