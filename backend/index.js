@@ -3,12 +3,11 @@ const cors = require("cors");
 const axios = require("axios");
 require("dotenv").config();
 
-const app = express(); // ✅ MUST COME FIRST
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-/* ------------------ TEST ROUTE ------------------ */
 app.get("/", (req, res) => {
   res.send("Backend is live 🚀");
 });
@@ -32,7 +31,7 @@ app.post("/stkpush", async (req, res) => {
         account_id: process.env.HASHPAY_ACCOUNT_ID,
         amount: String(amount),
         msisdn: phone,
-        reference: reference || `LOAN-${Date.now()}`
+        reference: reference || `LOAN-${Date.now()}`,
       },
       {
         headers: {
@@ -41,16 +40,55 @@ app.post("/stkpush", async (req, res) => {
       }
     );
 
-    console.log("HashPay response:", response.data);
+    console.log("HashPay STK response:", response.data);
 
     res.json(response.data);
-
   } catch (error) {
-    console.error("HashPay error:", error.response?.data || error.message);
+    console.error("HashPay STK error:", error.response?.data || error.message);
 
     res.status(500).json({
       success: false,
       message: "STK Push failed",
+      error: error.response?.data || error.message,
+    });
+  }
+});
+
+/* ------------------ CHECK TRANSACTION STATUS ------------------ */
+app.post("/transaction-status", async (req, res) => {
+  const { checkoutId } = req.body;
+
+  if (!checkoutId) {
+    return res.status(400).json({
+      success: false,
+      message: "checkoutId is required",
+    });
+  }
+
+  try {
+    const response = await axios.post(
+      "https://api.hashback.co.ke/transactionstatus",
+      {
+        api_key: process.env.HASHPAY_API_KEY,
+        account_id: process.env.HASHPAY_ACCOUNT_ID,
+        checkoutid: checkoutId,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("HashPay status response:", response.data);
+
+    res.json(response.data);
+  } catch (error) {
+    console.error("HashPay status error:", error.response?.data || error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Transaction status check failed",
       error: error.response?.data || error.message,
     });
   }

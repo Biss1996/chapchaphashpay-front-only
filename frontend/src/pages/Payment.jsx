@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
-import { initiateSTKPush } from "../services/hashpay";
+import { initiateSTKPush, checkHashpayStatus } from "../services/hashpay";
 
 export default function Payment() {
   const [loading, setLoading] = useState(false);
@@ -29,11 +29,73 @@ export default function Payment() {
     }
   }, [navigate]);
 
+  const checkPaymentStatus = (checkoutId) => {
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const interval = setInterval(async () => {
+      attempts++;
+
+      try {
+        const status = await checkHashpayStatus(checkoutId);
+        console.log("Payment status:", status);
+
+        if (status.ResultCode === "0" || status.ResultCode === 0) {
+          clearInterval(interval);
+          setLoading(false);
+
+          Swal.fire({
+            title: "Payment Confirmed ✅",
+            text: "Your payment was successful.",
+            icon: "success",
+            confirmButtonColor: "#10b981",
+          }).then(() => {
+            navigate("/success", { replace: true });
+          });
+
+          return;
+        }
+
+        if (
+          status.ResultCode &&
+          status.ResultCode !== "0" &&
+          status.ResultCode !== 0
+        ) {
+          clearInterval(interval);
+          setLoading(false);
+
+          Swal.fire({
+            title: "Payment Failed",
+            text: status.ResultDesc || "Payment was cancelled or not completed.",
+            icon: "error",
+          });
+
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setLoading(false);
+
+          Swal.fire({
+            title: "Payment Not Confirmed",
+            text: "We could not confirm your payment. Please try again.",
+            icon: "warning",
+          });
+        }
+      } catch (err) {
+        console.log("Status check error:", err);
+      }
+    }, 3000);
+  };
+
   const handlePay = async () => {
     if (!loanData || !formData) {
       toast.error("Missing loan or user data");
       return;
     }
+
+    setLoading(true);
 
     Swal.fire({
       title: "Processing Payment",
@@ -49,39 +111,42 @@ export default function Payment() {
       },
     });
 
-    setLoading(true);
-
     try {
       const response = await initiateSTKPush(
-        formData.phone_number, // ✅ FIXED FIELD NAME
+        formData.phone_number,
         loanData.processing_fee,
         `LOAN-${Date.now()}`
       );
 
-      Swal.close();
+      console.log("STK response:", response);
 
-      if (response.success) {
+      if (response.success && response.checkout_id) {
         toast.success("STK Push sent!");
 
         Swal.fire({
           title: "Check Your Phone 📱",
-          text: "Enter your M-Pesa PIN to complete payment.",
-          icon: "success",
-          confirmButtonColor: "#10b981",
+          text: "Enter your M-Pesa PIN. We will confirm payment automatically.",
+          icon: "info",
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
         });
 
-        setTimeout(() => {
-          navigate("/success", { replace: true });
-        }, 2000);
+        checkPaymentStatus(response.checkout_id);
       } else {
+        setLoading(false);
+
         Swal.fire({
           title: "Payment Failed",
-          text: "Try again later.",
+          text: response.message || "STK Push could not be initiated.",
           icon: "error",
         });
       }
     } catch (error) {
       console.log(error);
+      setLoading(false);
 
       Swal.fire({
         title: "Error",
@@ -90,8 +155,6 @@ export default function Payment() {
       });
 
       toast.error("Payment error");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -99,23 +162,14 @@ export default function Payment() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-emerald-50 flex items-center justify-center px-4">
-
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-
-        {/* HEADER */}
         <div className="bg-gradient-to-r from-sky-500 to-emerald-500 p-6 text-white text-center">
           <h1 className="text-2xl font-bold">Loan Activation</h1>
-          <p className="text-sm opacity-90 mt-1">
-            Secure M-Pesa Checkout
-          </p>
+          <p className="text-sm opacity-90 mt-1">Secure M-Pesa Checkout</p>
         </div>
 
-        {/* BODY */}
         <div className="p-6 space-y-5">
-
-          {/* LOAN AMOUNT */}
           <div className="bg-gradient-to-r from-emerald-500 to-sky-500 rounded-xl p-6 text-center text-white shadow-lg">
-
             <p className="text-sm opacity-90">
               Congratulations! You are approved for
             </p>
@@ -129,9 +183,7 @@ export default function Payment() {
             </p>
           </div>
 
-          {/* FEE */}
           <div className="bg-gray-50 rounded-xl p-4 border text-center">
-
             <p className="text-sm text-gray-500">Activation Fee</p>
 
             <p className="text-3xl font-bold text-gray-900 mt-1">
@@ -143,7 +195,6 @@ export default function Payment() {
             </p>
           </div>
 
-          {/* PHONE */}
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
             <p className="text-sm text-gray-600">M-Pesa Number</p>
             <p className="text-lg font-semibold text-gray-900">
@@ -151,12 +202,10 @@ export default function Payment() {
             </p>
           </div>
 
-          {/* INFO */}
           <div className="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
             You will receive an STK Push. Enter your M-Pesa PIN to complete payment.
           </div>
 
-          {/* BUTTON */}
           {loading ? (
             <div className="flex justify-center py-4">
               <Loader />
@@ -173,7 +222,6 @@ export default function Payment() {
           <p className="text-center text-xs text-gray-400">
             🔒 Secure STK Push Payment
           </p>
-
         </div>
       </div>
     </div>
