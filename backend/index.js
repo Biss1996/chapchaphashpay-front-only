@@ -23,6 +23,16 @@ app.post("/stkpush", async (req, res) => {
     });
   }
 
+  let formattedPhone = String(phone).trim();
+
+  if (formattedPhone.startsWith("+")) {
+    formattedPhone = formattedPhone.slice(1);
+  }
+
+  if (formattedPhone.startsWith("0")) {
+    formattedPhone = "254" + formattedPhone.slice(1);
+  }
+
   try {
     const response = await axios.post(
       "https://api.hashback.co.ke/initiatestk",
@@ -30,23 +40,24 @@ app.post("/stkpush", async (req, res) => {
         api_key: process.env.HASHPAY_API_KEY,
         account_id: process.env.HASHPAY_ACCOUNT_ID,
         amount: String(amount),
-        msisdn: phone,
+        msisdn: formattedPhone,
         reference: reference || `LOAN-${Date.now()}`,
       },
       {
         headers: {
           "Content-Type": "application/json",
         },
+        timeout: 30000,
       }
     );
 
     console.log("HashPay STK response:", response.data);
 
-    res.json(response.data);
+    return res.json(response.data);
   } catch (error) {
     console.error("HashPay STK error:", error.response?.data || error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "STK Push failed",
       error: error.response?.data || error.message,
@@ -77,16 +88,17 @@ app.post("/transaction-status", async (req, res) => {
         headers: {
           "Content-Type": "application/json",
         },
+        timeout: 30000,
       }
     );
 
     console.log("HashPay status response:", response.data);
 
-    res.json(response.data);
+    return res.json(response.data);
   } catch (error) {
     console.error("HashPay status error:", error.response?.data || error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Transaction status check failed",
       error: error.response?.data || error.message,
