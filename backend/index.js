@@ -15,7 +15,7 @@ app.use(helmet());
 app.use(
   cors({
     origin: [
-      "https://talahashpay.vercel.app",
+      "https://chapchaphashpay.vercel.app",
       "https://talahashpay.com",
     ],
     methods: ["GET", "POST", "OPTIONS"],
