@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import Loader from "../components/Loader";
-import { initiateSTKPush, checkHashpayStatus } from "../services/hashpay";
+import { initiateSTKPush, checkTransactionStatus } from "../api";
 
 export default function Payment() {
   const [loading, setLoading] = useState(false);
