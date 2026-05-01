@@ -37,7 +37,7 @@ export default function Payment() {
       attempts++;
 
       try {
-        const status = await checkHashpayStatus(checkoutId);
+        const status = await checkTransactionStatus(checkoutId);
         console.log("Payment status:", status);
 
         const resultCode = String(status.ResultCode ?? "");
