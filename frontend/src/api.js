@@ -1,25 +1,45 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: "",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// STK Push
-export const initiateSTKPush = async (phone, amount) => {
+export const initiateSTKPush = async (phone, amount, reference = "PAYMENT") => {
   try {
-    const res = await API.post("/stkpush", {
+    const res = await API.post("/api/stkpush", {
       phone,
       amount,
-      reference: `LOAN-${Date.now()}`, // ✅ REQUIRED
+      reference,
     });
 
     return res.data;
   } catch (error) {
-    console.error("API Error:", error.response?.data || error.message);
-    return { success: false };
+    console.error("STK Push Error:", error.response?.data || error.message);
+
+    return {
+      success: false,
+      message: error.response?.data?.message || "Payment request failed",
+    };
+  }
+};
+
+export const checkTransactionStatus = async (checkoutId) => {
+  try {
+    const res = await API.post("/api/transaction-status", {
+      checkoutId,
+    });
+
+    return res.data;
+  } catch (error) {
+    console.error("Status Check Error:", error.response?.data || error.message);
+
+    return {
+      success: false,
+      message: error.response?.data?.message || "Status check failed",
+    };
   }
 };
 
