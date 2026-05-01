@@ -1,11 +1,8 @@
 import api from "../api";
 
-/**
- * Initiates STK Push via backend (Flask)
- */
 export const initiateSTKPush = async (phone, amount, reference) => {
   try {
-    const res = await api.post("/stkpush", {
+    const res = await api.post("/api/stkpush", {   // ✅ FIXED
       phone,
       amount,
       reference,
@@ -18,12 +15,9 @@ export const initiateSTKPush = async (phone, amount, reference) => {
   }
 };
 
-/**
- * Checks transaction status via backend
- */
 export const checkHashpayStatus = async (checkoutId) => {
   try {
-    const res = await api.post("/transaction-status", {
+    const res = await api.post("/api/transaction-status", {  // ✅ FIXED
       checkoutId,
     });
 
