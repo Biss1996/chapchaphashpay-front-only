@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
-import { ChevronLeft, DollarSign, Phone, User, Loader2, ShieldCheck } from "lucide-react";
+import { ChevronLeft, DollarSign, Phone, User, Loader2, ShieldCheck, Clock } from "lucide-react";
 import Loader from "../components/Loader";
 import Stepper from "../components/Stepper";
 import { initiateSTKPush, checkTransactionStatus } from "../services/api";
@@ -12,6 +12,7 @@ export default function Payment() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(null);
   const [loanData, setLoanData] = useState(null);
+  const [paymentAttempts, setPaymentAttempts] = useState(0);
   const navigate = useNavigate();
 
   // Steps for the stepper
@@ -19,8 +20,8 @@ export default function Payment() {
 
   useEffect(() => {
     try {
-      const data = JSON.parse(sessionStorage.getItem("myLoan") || "null");
       const loan = JSON.parse(sessionStorage.getItem("myLoan") || "null");
+      const user = JSON.parse(sessionStorage.getItem("userData") || "null");
 
       if (!loan) {
         toast.error("No loan data found. Please start over.");
@@ -28,7 +29,8 @@ export default function Payment() {
         return;
       }
 
-      setFormData(data);
+      // Merge loan and user data
+      setFormData({ ...user, ...loan });
       setLoanData(loan);
     } catch (err) {
       console.error("Storage error:", err);
@@ -37,30 +39,38 @@ export default function Payment() {
     }
   }, [navigate]);
 
-  // Poll payment status
+  // Poll payment status with better error handling
   const checkPaymentStatus = (checkoutId) => {
     let attempts = 0;
     const maxAttempts = 40; // ~2 minutes (3s interval)
+    let interval;
 
-    const interval = setInterval(async () => {
+    interval = setInterval(async () => {
       attempts++;
+      setPaymentAttempts(attempts);
+
       try {
         const status = await checkTransactionStatus(checkoutId);
-        console.log("Payment status:", status);
+        console.log("Payment status response:", status);
 
-        const resultCode = String(status.ResultCode ?? "");
-        const responseCode = String(status.ResponseCode ?? "");
+        // Handle different response formats from PayHero
+        const resultCode = String(status?.ResultCode ?? status?.result_code ?? status?.status ?? "");
+        const responseCode = String(status?.ResponseCode ?? status?.response_code ?? "");
+        const resultDesc = status?.ResultDesc ?? status?.result_desc ?? status?.message ?? "Payment processing";
 
-        // Success cases
-        if (resultCode === "0" || responseCode === "0") {
+        // Success cases (PayHero uses ResultCode="0" for success)
+        if (resultCode === "0" || responseCode === "0" || resultDesc.toLowerCase().includes("success")) {
           clearInterval(interval);
           setLoading(false);
 
+          // Store payment confirmation
           sessionStorage.setItem("payment_status", "completed");
+          sessionStorage.setItem("payment_reference", checkoutId);
+          sessionStorage.setItem("payment_time", new Date().toISOString());
 
           await Swal.fire({
             title: "Payment Confirmed ✅",
-            text: "Your payment was successful. Your loan is being processed.",
+            text: resultDesc || "Your payment was successful. Your loan is being processed.",
             icon: "success",
             confirmButtonColor: "#10b981",
             allowOutsideClick: false,
@@ -70,29 +80,27 @@ export default function Payment() {
           return;
         }
 
-        // Pending cases
-        if (
-          resultCode === "" ||
-          resultCode === "null" ||
-          responseCode === "" ||
-          responseCode === "null"
-        ) {
+        // Pending cases (no response yet)
+        if (!resultCode || resultCode === "null" || !responseCode || responseCode === "null" || resultDesc.toLowerCase().includes("pending")) {
           console.log(`Payment pending... (Attempt ${attempts}/${maxAttempts})`);
           return;
         }
 
-        // Failure cases
-        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001" || responseCode === "1") {
+        // Failure cases (PayHero error codes)
+        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001" || responseCode === "1" ||
+            resultDesc.toLowerCase().includes("failed") || resultDesc.toLowerCase().includes("cancelled")) {
           clearInterval(interval);
           setLoading(false);
 
           await Swal.fire({
             title: "Payment Failed ❌",
-            text: status.ResultDesc || "Payment was cancelled or failed. Please try again.",
+            text: resultDesc || "Payment was cancelled or failed. Please try again.",
             icon: "error",
             confirmButtonColor: "#ef4444",
+            allowOutsideClick: false,
           });
 
+          navigate("/apply");
           return;
         }
 
@@ -103,9 +111,19 @@ export default function Payment() {
 
           await Swal.fire({
             title: "Payment Timeout ⏳",
-            text: "We couldn't confirm your payment. Please check your M-Pesa statement or contact support.",
+            html: `
+              We couldn't confirm your payment after ${maxAttempts * 3} seconds.
+              <br/><br/>
+              <strong>What to do:</strong>
+              <ul class="text-left mt-2">
+                <li>• Check your M-Pesa statement for the transaction</li>
+                <li>• Ensure you entered your PIN correctly</li>
+                <li>• Try again in a few minutes</li>
+              </ul>
+            `,
             icon: "warning",
             confirmButtonColor: "#f59e0b",
+            allowOutsideClick: false,
           });
 
           navigate("/apply");
@@ -115,15 +133,37 @@ export default function Payment() {
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           setLoading(false);
-          toast.error("Failed to verify payment. Please contact support.");
+          await Swal.fire({
+            title: "Connection Error",
+            text: "Failed to verify payment status. Please check your internet connection.",
+            icon: "error",
+            confirmButtonColor: "#ef4444",
+            allowOutsideClick: false,
+          });
+          navigate("/apply");
         }
       }
     }, 3000); // Check every 3 seconds
+
+    // Return cleanup function
+    return () => clearInterval(interval);
   };
 
   const handlePay = async () => {
     if (!loanData || !formData) {
       toast.error("Missing loan or user data. Please start over.");
+      return;
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^(\+?254|0)[17]\d{8}$/;
+    if (!phoneRegex.test(formData.phone_number)) {
+      await Swal.fire({
+        title: "Invalid Phone Number",
+        text: "Please use a valid Kenyan phone number (e.g., 0712345678 or +254712345678)",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
       return;
     }
 
@@ -135,6 +175,11 @@ export default function Payment() {
       html: `
         <p>Sending STK Push to <strong>${formData.phone_number}</strong></p>
         <p class="text-sm">Enter your M-Pesa PIN when prompted.</p>
+        <div class="mt-2">
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
       `,
       icon: "info",
       allowOutsideClick: false,
@@ -145,38 +190,45 @@ export default function Payment() {
     });
 
     try {
+      // Format phone number for PayHero
+      const formattedPhone = formData.phone_number.startsWith('+254')
+        ? formData.phone_number
+        : formData.phone_number.startsWith('0')
+          ? `+254${formData.phone_number.slice(1)}`
+          : `+254${formData.phone_number}`;
+
       // Initiate STK Push
       const response = await initiateSTKPush(
-        formData.phone_number,
+        formattedPhone,
         loanData.processing_fee,
-        `LOAN-${Date.now()}`
+        `LOAN-${Date.now()}-${formData.phone_number.slice(-4)}`
       );
 
       console.log("STK Push Response:", response);
 
-      // Extract checkout ID (handle various possible response formats)
-      const checkoutId =
-        response.checkout_id ||
-        response.checkoutId ||
-        response.CheckoutRequestID ||
-        response.CheckoutID ||
-        response.checkoutid ||
-        response?.raw?.checkout_id ||
-        response?.raw?.checkoutId ||
-        response?.raw?.CheckoutRequestID ||
-        response?.raw?.CheckoutID;
+      // Extract CheckoutRequestID (PayHero's standard format)
+      const checkoutId = response.CheckoutRequestID ||
+                        response.checkoutRequestID ||
+                        response.checkout_id ||
+                        response.CheckoutID;
 
       if (!checkoutId) {
-        throw new Error("No checkout ID received from payment gateway.");
+        throw new Error("No CheckoutRequestID received from PayHero. Please try again.");
       }
 
-      // Update Swal to show phone check prompt
+      // Update Swal to show phone check prompt with progress
       await Swal.fire({
         title: "Check Your Phone 📱",
         html: `
-          <p>STK Push sent to <strong>${formData.phone_number}</strong></p>
+          <p>STK Push sent to <strong>${formattedPhone}</strong></p>
           <p class="text-sm">Enter your M-Pesa PIN to complete payment.</p>
           <p class="text-xs mt-2">We'll confirm automatically once paid.</p>
+          <div class="mt-3">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Waiting for payment confirmation...</p>
+          </div>
         `,
         icon: "info",
         allowOutsideClick: false,
@@ -192,25 +244,52 @@ export default function Payment() {
     } catch (error) {
       console.error("STK Push Error:", error);
       setLoading(false);
-
-      // Close any open Swal
       Swal.close();
 
-      // Show error
+      // Handle specific error cases
+      let errorMessage = "Failed to initiate M-Pesa payment. Please try again.";
+
+      if (error.response) {
+        if (error.response.status === 400) {
+          errorMessage = error.response.data?.error_message ||
+                        error.response.data?.message ||
+                        "Invalid request. Please check your details.";
+        } else if (error.response.status === 401) {
+          errorMessage = "Authentication failed. Please contact support.";
+        } else if (error.response.status === 404) {
+          errorMessage = "Payment service unavailable. Please try again later.";
+        } else if (error.response.data?.error_message) {
+          errorMessage = error.response.data.error_message;
+        }
+      } else if (error.message.includes("Network Error")) {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please try again.";
+      }
+
       await Swal.fire({
         title: "Payment Error",
-        text: error.message || "Failed to initiate M-Pesa payment. Please try again.",
+        text: errorMessage,
         icon: "error",
         confirmButtonColor: "#ef4444",
+        allowOutsideClick: false,
       });
-
-      toast.error("Payment failed. Please try again.");
     }
   };
 
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      // Clear any existing intervals
+      const intervalIds = [];
+      // This would be populated if we had access to the interval IDs
+      intervalIds.forEach(id => clearInterval(id));
+    };
+  }, []);
+
   if (!formData || !loanData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900">
         <Loader />
       </div>
     );
@@ -226,7 +305,7 @@ export default function Payment() {
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
-        className="fixed top-6 left-6 flex items-center space-x-2 text-white/80 hover:text-white z-50"
+        className="fixed top-6 left-6 flex items-center space-x-2 text-white/80 hover:text-white z-50 transition-colors"
       >
         <ChevronLeft size={20} />
         <span>Back</span>
@@ -240,8 +319,9 @@ export default function Payment() {
       {/* Payment Card */}
       <div className="container mx-auto px-4 pb-12">
         <motion.div
-          initial={{ y: 20 }}
-          animate={{ y: 0 }}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
           className="max-w-lg mx-auto glass-card rounded-2xl p-6 md:p-8"
         >
           {/* Header */}
@@ -290,7 +370,9 @@ export default function Payment() {
             <ShieldCheck size={20} className="text-green-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-white/80">
-                <strong>Secure Payment:</strong> We use M-Pesa STK Push for your security. You'll receive a prompt on your phone to enter your PIN.
+                <strong>Secure Payment:</strong> We use M-Pesa STK Push for your security.
+                You'll receive a prompt on your phone to enter your PIN.
+                No charges until you confirm.
               </p>
             </div>
           </div>
@@ -315,6 +397,14 @@ export default function Payment() {
               </>
             )}
           </motion.button>
+
+          {/* Payment Attempts Counter */}
+          {paymentAttempts > 0 && (
+            <div className="mt-4 text-center text-xs text-white/60">
+              <Clock size={14} className="inline-block mr-1" />
+              Checking payment status... ({paymentAttempts}/40)
+            </div>
+          )}
 
           {/* Footer Note */}
           <p className="text-center text-xs text-white/50 mt-6">

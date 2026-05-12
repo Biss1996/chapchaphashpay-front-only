@@ -8,29 +8,47 @@ import {
   Phone,
   ShieldCheck,
   Zap,
-  PartyPopper,
   Home,
   CreditCard,
   TrendingUp,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  User
 } from "lucide-react";
 
 export default function Success() {
   const alertShown = useRef(false);
   const navigate = useNavigate();
-  const [showPartyPopper, setShowPartyPopper] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Get data from sessionStorage with validation
   const loanData = JSON.parse(sessionStorage.getItem("myLoan") || "{}");
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+  const paymentStatus = sessionStorage.getItem("payment_status");
 
   useEffect(() => {
+    // Security check: Redirect if user shouldn't be here
+    if (paymentStatus !== "completed" || Object.keys(loanData).length === 0) {
+      Swal.fire({
+        title: "Access Denied",
+        text: "You must complete payment to view this page.",
+        icon: "warning",
+        confirmButtonColor: "#f59e0b",
+        allowOutsideClick: false
+      }).then(() => {
+        navigate("/");
+      });
+      return;
+    }
+
     if (alertShown.current) return;
     alertShown.current = true;
 
-    // Trigger PartyPopper animation
-    setShowPartyPopper(true);
-    setTimeout(() => setShowPartyPopper(false), 5000);
+    // Trigger confetti animation
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 5000);
 
+    // Show success modal
     Swal.fire({
       title: "Payment Successful! 🎉",
       html: `
@@ -63,7 +81,7 @@ export default function Success() {
         navigate("/dashboard");
       }
     });
-  }, [navigate, loanData]);
+  }, [navigate, loanData, paymentStatus]);
 
   // Animation variants
   const container = {
@@ -94,12 +112,15 @@ export default function Success() {
     },
   };
 
-  // Calculate repayment details
+  // Calculate repayment details with fallbacks
   const loanAmount = parseInt(loanData.loan_amount || 0);
   const processingFee = parseInt(loanData.processing_fee || 0);
   const interestRate = parseInt(loanData.interest_rate || 10);
-  const totalRepayment = loanAmount + processingFee + (loanAmount * interestRate / 100);
-  const monthlyInstallment = (totalRepayment / 4).toFixed(2);
+  const totalRepayment = loanAmount + processingFee + Math.round(loanAmount * interestRate / 100);
+  const monthlyInstallment = Math.round(totalRepayment / 4);
+
+  // Format user name
+  const userName = userData.name || userData.customer_name || "Valued Customer";
 
   return (
     <motion.div
@@ -108,10 +129,10 @@ export default function Success() {
       transition={{ duration: 0.5 }}
       className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 relative overflow-hidden"
     >
-      {/* PartyPopper animation (CSS-based) */}
-      {showPartyPopper && (
+      {/* Confetti animation */}
+      {showConfetti && (
         <div className="absolute inset-0 pointer-events-none z-0">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(30)].map((_, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: -100, x: Math.random() * 100 - 50 }}
@@ -120,6 +141,7 @@ export default function Success() {
                 y: [0, 300, 500],
                 x: [Math.random() * 100 - 50, Math.random() * 100 - 50],
                 rotate: [0, 360],
+                scale: [0.5, 1, 0.5]
               }}
               transition={{
                 duration: 2 + Math.random() * 3,
@@ -172,7 +194,7 @@ export default function Success() {
           variants={item}
           className="text-gray-600 mb-8"
         >
-          Your activation fee has been received successfully.
+          Your activation fee has been received successfully, {userName}.
         </motion.p>
 
         {/* Loan Summary Card */}
@@ -203,15 +225,17 @@ export default function Success() {
               </span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <TrendingUp size={18} className="text-purple-600" />
-                <span className="text-gray-600">Interest ({interestRate}%)</span>
+            {interestRate > 0 && (
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp size={18} className="text-purple-600" />
+                  <span className="text-gray-600">Interest ({interestRate}%)</span>
+                </div>
+                <span className="font-bold text-purple-700">
+                  KES {(loanAmount * interestRate / 100).toLocaleString()}
+                </span>
               </div>
-              <span className="font-bold text-purple-700">
-                KES {(loanAmount * interestRate / 100).toLocaleString()}
-              </span>
-            </div>
+            )}
 
             <div className="border-t border-emerald-200 pt-4 mt-4">
               <div className="flex justify-between items-center font-bold">
@@ -224,7 +248,7 @@ export default function Success() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Monthly installment: KES {parseInt(monthlyInstallment).toLocaleString()}
+                Monthly installment: KES {monthlyInstallment.toLocaleString()}
               </p>
             </div>
           </div>
@@ -251,12 +275,12 @@ export default function Success() {
                 text: "Your application is being securely reviewed",
               },
               {
-                icon: <Zap size={18} className="text-blue-600" />,
-                text: "No additional application needed",
+                icon: <User size={18} className="text-blue-600" />,
+                text: `We'll notify ${userName.split(' ')[0] || 'you'} via SMS`,
               },
               {
                 icon: <Calendar size={18} className="text-blue-600" />,
-                text: `You'll receive confirmation within 3 business days`,
+                text: "You'll receive confirmation within 3 business days",
               },
             ].map((step, index) => (
               <div key={index} className="flex items-start space-x-3">
