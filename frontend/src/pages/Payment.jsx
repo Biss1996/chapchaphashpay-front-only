@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
@@ -14,6 +14,7 @@ export default function Payment() {
   const [loanData, setLoanData] = useState(null);
   const [paymentAttempts, setPaymentAttempts] = useState(0);
   const navigate = useNavigate();
+  const intervalRef = useRef(null); // Store interval ID in a ref
 
   // Steps for the stepper
   const steps = ["Select Amount", "Check Eligibility", "Pay Fee", "Success"];
@@ -39,13 +40,17 @@ export default function Payment() {
     }
   }, [navigate]);
 
-  // Poll payment status with better error handling
+  // Poll payment status with proper cleanup
   const checkPaymentStatus = (checkoutId) => {
     let attempts = 0;
     const maxAttempts = 40; // ~2 minutes (3s interval)
-    let interval;
 
-    interval = setInterval(async () => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    intervalRef.current = setInterval(async () => {
       attempts++;
       setPaymentAttempts(attempts);
 
@@ -53,14 +58,14 @@ export default function Payment() {
         const status = await checkTransactionStatus(checkoutId);
         console.log("Payment status response:", status);
 
-        // Handle different response formats from PayHero
-        const resultCode = String(status?.ResultCode ?? status?.result_code ?? status?.status ?? "");
+        // Handle PayHero's response format
+        const resultCode = String(status?.ResultCode ?? status?.result_code ?? "");
         const responseCode = String(status?.ResponseCode ?? status?.response_code ?? "");
-        const resultDesc = status?.ResultDesc ?? status?.result_desc ?? status?.message ?? "Payment processing";
+        const resultDesc = status?.ResultDesc ?? status?.result_desc ?? "";
 
-        // Success cases (PayHero uses ResultCode="0" for success)
-        if (resultCode === "0" || responseCode === "0" || resultDesc.toLowerCase().includes("success")) {
-          clearInterval(interval);
+        // SUCCESS: PayHero returns ResultCode="0" for successful payments
+        if (resultCode === "0" || responseCode === "0") {
+          clearInterval(intervalRef.current);
           setLoading(false);
 
           // Store payment confirmation
@@ -68,29 +73,25 @@ export default function Payment() {
           sessionStorage.setItem("payment_reference", checkoutId);
           sessionStorage.setItem("payment_time", new Date().toISOString());
 
-          await Swal.fire({
-            title: "Payment Confirmed ✅",
-            text: resultDesc || "Your payment was successful. Your loan is being processed.",
-            icon: "success",
-            confirmButtonColor: "#10b981",
-            allowOutsideClick: false,
-          });
+          // Close any open Swal
+          Swal.close();
 
+          // Redirect to success page
           navigate("/success", { replace: true });
           return;
         }
 
-        // Pending cases (no response yet)
-        if (!resultCode || resultCode === "null" || !responseCode || responseCode === "null" || resultDesc.toLowerCase().includes("pending")) {
+        // PENDING: No response yet
+        if (!resultCode || resultCode === "null" || !responseCode || responseCode === "null") {
           console.log(`Payment pending... (Attempt ${attempts}/${maxAttempts})`);
           return;
         }
 
-        // Failure cases (PayHero error codes)
-        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001" || responseCode === "1" ||
-            resultDesc.toLowerCase().includes("failed") || resultDesc.toLowerCase().includes("cancelled")) {
-          clearInterval(interval);
+        // FAILURE: PayHero error codes
+        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001" || responseCode === "1") {
+          clearInterval(intervalRef.current);
           setLoading(false);
+          Swal.close();
 
           await Swal.fire({
             title: "Payment Failed ❌",
@@ -104,23 +105,15 @@ export default function Payment() {
           return;
         }
 
-        // Max attempts reached
+        // MAX ATTEMPTS REACHED
         if (attempts >= maxAttempts) {
-          clearInterval(interval);
+          clearInterval(intervalRef.current);
           setLoading(false);
+          Swal.close();
 
           await Swal.fire({
             title: "Payment Timeout ⏳",
-            html: `
-              We couldn't confirm your payment after ${maxAttempts * 3} seconds.
-              <br/><br/>
-              <strong>What to do:</strong>
-              <ul class="text-left mt-2">
-                <li>• Check your M-Pesa statement for the transaction</li>
-                <li>• Ensure you entered your PIN correctly</li>
-                <li>• Try again in a few minutes</li>
-              </ul>
-            `,
+            text: `We couldn't confirm your payment after ${maxAttempts * 3} seconds. Please check your M-Pesa statement.`,
             icon: "warning",
             confirmButtonColor: "#f59e0b",
             allowOutsideClick: false,
@@ -131,8 +124,10 @@ export default function Payment() {
       } catch (err) {
         console.error("Status check error:", err);
         if (attempts >= maxAttempts) {
-          clearInterval(interval);
+          clearInterval(intervalRef.current);
           setLoading(false);
+          Swal.close();
+
           await Swal.fire({
             title: "Connection Error",
             text: "Failed to verify payment status. Please check your internet connection.",
@@ -144,9 +139,6 @@ export default function Payment() {
         }
       }
     }, 3000); // Check every 3 seconds
-
-    // Return cleanup function
-    return () => clearInterval(interval);
   };
 
   const handlePay = async () => {
@@ -175,11 +167,6 @@ export default function Payment() {
       html: `
         <p>Sending STK Push to <strong>${formData.phone_number}</strong></p>
         <p class="text-sm">Enter your M-Pesa PIN when prompted.</p>
-        <div class="mt-2">
-          <div class="w-full bg-gray-200 rounded-full h-2">
-            <div class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
-          </div>
-        </div>
       `,
       icon: "info",
       allowOutsideClick: false,
@@ -216,19 +203,13 @@ export default function Payment() {
         throw new Error("No CheckoutRequestID received from PayHero. Please try again.");
       }
 
-      // Update Swal to show phone check prompt with progress
+      // Update Swal to show phone check prompt
       await Swal.fire({
         title: "Check Your Phone 📱",
         html: `
           <p>STK Push sent to <strong>${formattedPhone}</strong></p>
           <p class="text-sm">Enter your M-Pesa PIN to complete payment.</p>
           <p class="text-xs mt-2">We'll confirm automatically once paid.</p>
-          <div class="mt-3">
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Waiting for payment confirmation...</p>
-          </div>
         `,
         icon: "info",
         allowOutsideClick: false,
@@ -280,10 +261,9 @@ export default function Payment() {
   // Cleanup interval on unmount
   useEffect(() => {
     return () => {
-      // Clear any existing intervals
-      const intervalIds = [];
-      // This would be populated if we had access to the interval IDs
-      intervalIds.forEach(id => clearInterval(id));
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, []);
 
@@ -402,7 +382,7 @@ export default function Payment() {
           {paymentAttempts > 0 && (
             <div className="mt-4 text-center text-xs text-white/60">
               <Clock size={14} className="inline-block mr-1" />
-              Checking payment status... ({paymentAttempts}/40)
+              Checking payment status... ({paymentAttempts}/{maxAttempts})
             </div>
           )}
 
