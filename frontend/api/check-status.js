@@ -1,4 +1,4 @@
-import axios from "axios";
+global.payments = global.payments || {};
 
 export default async function handler(
   req,
@@ -19,24 +19,39 @@ export default async function handler(
       });
     }
 
-    /*
-      TEMP MOCK SUCCESS
+    const payment =
+      global.payments[checkoutId];
 
-      Since PayHero callback persistence
-      fails on serverless memory,
-      we simulate successful payment
-      after user pays.
+    // NOT FOUND YET
+    if (!payment) {
+      return res.status(200).json({
+        status: "PENDING",
+      });
+    }
 
-      Replace with DB later.
-    */
+    // SUCCESS
+    if (payment.status === "SUCCESS") {
+      return res.status(200).json({
+        ResultCode: "0",
+        ResponseCode: "0",
+        ResultDesc:
+          "Payment successful",
+      });
+    }
 
+    // FAILED
+    if (payment.status === "FAILED") {
+      return res.status(200).json({
+        ResultCode: "1032",
+        ResponseCode: "1",
+        ResultDesc:
+          "Payment cancelled",
+      });
+    }
+
+    // DEFAULT PENDING
     return res.status(200).json({
-      ResultCode: "0",
-      ResponseCode: "0",
-      ResultDesc:
-        "Payment successful",
-      CheckoutRequestID:
-        checkoutId,
+      status: "PENDING",
     });
   } catch (error) {
     console.error(error);
