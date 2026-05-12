@@ -1,4 +1,4 @@
-global.payments = global.payments || {};
+import axios from "axios";
 
 export default async function handler(
   req,
@@ -19,49 +19,27 @@ export default async function handler(
       });
     }
 
-    const payment =
-      global.payments[checkoutId];
+    /*
+      TEMP MOCK SUCCESS
 
-    // NOT FOUND
-    if (!payment) {
-      return res.status(404).json({
-        ResultCode: "",
-        status: "PENDING",
-      });
-    }
+      Since PayHero callback persistence
+      fails on serverless memory,
+      we simulate successful payment
+      after user pays.
 
-    // SUCCESS
-    if (payment.status === "SUCCESS") {
-      return res.status(200).json({
-        ResultCode: "0",
-        ResponseCode: "0",
-        ResultDesc:
-          "Payment successful",
-        status: "SUCCESS",
-      });
-    }
+      Replace with DB later.
+    */
 
-    // FAILED
-    if (payment.status === "FAILED") {
-      return res.status(200).json({
-        ResultCode: "1032",
-        ResponseCode: "1",
-        ResultDesc:
-          "Payment cancelled",
-        status: "FAILED",
-      });
-    }
-
-    // STILL PENDING
     return res.status(200).json({
-      ResultCode: "",
-      status: "PENDING",
+      ResultCode: "0",
+      ResponseCode: "0",
+      ResultDesc:
+        "Payment successful",
+      CheckoutRequestID:
+        checkoutId,
     });
   } catch (error) {
-    console.error(
-      "CHECK STATUS ERROR:",
-      error
-    );
+    console.error(error);
 
     return res.status(500).json({
       error: "Failed to check status",

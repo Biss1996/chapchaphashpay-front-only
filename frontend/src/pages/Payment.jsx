@@ -204,7 +204,7 @@ export default function Payment() {
       }
 
       // Update Swal to show phone check prompt
-      await Swal.fire({
+          Swal.fire({
         title: "Check Your Phone 📱",
         html: `
           <p>STK Push sent to <strong>${formattedPhone}</strong></p>
