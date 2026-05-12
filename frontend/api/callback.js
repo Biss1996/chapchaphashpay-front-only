@@ -1,20 +1,87 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+global.payments = global.payments || {};
+
+export default async function handler(
+  req,
+  res
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      error: "Method not allowed",
+    });
   }
 
   try {
-    const callbackData = req.body;
-    console.log('PayHero Callback:', callbackData);
+    const callback = req.body;
 
-    // Here you would typically:
-    // 1. Verify the callback is from PayHero (check IP, signature, etc.)
-    // 2. Update your database with the payment status
-    // 3. Send notifications to the user
+    console.log(
+      "PAYHERO CALLBACK:",
+      JSON.stringify(
+        callback,
+        null,
+        2
+      )
+    );
 
-    return res.status(200).json({ success: true, message: 'Callback received' });
+    /*
+      EXPECTED CALLBACK STRUCTURE
+      MAY DIFFER SLIGHTLY
+
+      {
+        CheckoutRequestID: "...",
+        ResultCode: "0",
+        ResultDesc: "Success"
+      }
+    */
+
+    const checkoutId =
+      callback.CheckoutRequestID ||
+      callback.checkoutRequestID;
+
+    const resultCode = String(
+      callback.ResultCode || ""
+    );
+
+    // PAYMENT SUCCESS
+    if (resultCode === "0") {
+      if (
+        global.payments[checkoutId]
+      ) {
+        global.payments[
+          checkoutId
+        ].status = "SUCCESS";
+
+        global.payments[
+          checkoutId
+        ].callback = callback;
+      }
+    }
+
+    // PAYMENT FAILED
+    else {
+      if (
+        global.payments[checkoutId]
+      ) {
+        global.payments[
+          checkoutId
+        ].status = "FAILED";
+
+        global.payments[
+          checkoutId
+        ].callback = callback;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+    });
   } catch (error) {
-    console.error('Callback Error:', error);
-    return res.status(500).json({ error: 'Callback processing failed' });
+    console.error(
+      "CALLBACK ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+    });
   }
 }

@@ -1,37 +1,146 @@
-import { CheckCircle, Circle } from 'lucide-react';
+import {
+  CheckCircle,
+  Circle,
+} from "lucide-react";
 
-const Stepper = ({ steps, currentStep }) => {
+const Stepper = ({
+  steps,
+  currentStep,
+}) => {
   return (
-    <div className="flex justify-between items-center mb-8">
-      {steps.map((step, index) => (
-        <div key={step} className="flex items-center">
-          <div className="flex flex-col items-center">
+    <div className="w-full overflow-x-auto scrollbar-hide">
+      <div
+        className="
+          flex
+          items-start
+          justify-between
+          min-w-max
+          px-2
+          sm:px-4
+          mb-6
+        "
+      >
+        {steps.map((step, index) => {
+          const active =
+            index <= currentStep;
+
+          const completed =
+            index < currentStep;
+
+          return (
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                index <= currentStep
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white/10 text-gray-400'
-              }`}
+              key={step}
+              className="
+                flex
+                items-center
+                flex-1
+                min-w-[80px]
+                sm:min-w-[120px]
+              "
             >
-              {index < currentStep ? (
-                <CheckCircle size={20} />
-              ) : (
-                <Circle size={20} />
+              {/* STEP */}
+              <div
+                className="
+                  flex
+                  flex-col
+                  items-center
+                  text-center
+                  relative
+                  z-10
+                "
+              >
+                {/* ICON */}
+                <div
+                  className={`
+                    w-9 h-9
+                    sm:w-10 sm:h-10
+                    md:w-12 md:h-12
+                    rounded-full
+                    flex
+                    items-center
+                    justify-center
+                    transition-all
+                    duration-300
+                    shadow-sm
+                    border
+
+                    ${
+                      active
+                        ? "bg-gradient-to-r from-sky-500 to-emerald-500 text-white border-transparent"
+                        : "bg-white text-gray-400 border-gray-200"
+                    }
+                  `}
+                >
+                  {completed ? (
+                    <CheckCircle
+                      size={18}
+                      className="sm:w-5 sm:h-5"
+                    />
+                  ) : (
+                    <Circle
+                      size={18}
+                      className="sm:w-5 sm:h-5"
+                    />
+                  )}
+                </div>
+
+                {/* LABEL */}
+                <span
+                  className={`
+                    mt-2
+                    text-[10px]
+                    sm:text-xs
+                    md:text-sm
+                    font-medium
+                    leading-tight
+                    max-w-[70px]
+                    sm:max-w-[100px]
+
+                    ${
+                      active
+                        ? "text-gray-800"
+                        : "text-gray-400"
+                    }
+                  `}
+                >
+                  {step}
+                </span>
+              </div>
+
+              {/* CONNECTOR */}
+              {index <
+                steps.length - 1 && (
+                <div
+                  className="
+                    flex-1
+                    h-1
+                    mx-1
+                    sm:mx-2
+                    md:mx-3
+                    rounded-full
+                    transition-all
+                    duration-300
+                    mt-[-22px]
+                    sm:mt-[-24px]
+                  "
+                >
+                  <div
+                    className={`
+                      h-full
+                      rounded-full
+                      ${
+                        completed
+                          ? "bg-gradient-to-r from-sky-500 to-emerald-500"
+                          : "bg-gray-200"
+                      }
+                    `}
+                  />
+                </div>
               )}
             </div>
-            <span className="text-xs mt-2 text-center text-gray-300">
-              {step}
-            </span>
-          </div>
-          {index < steps.length - 1 && (
-            <div
-              className={`w-16 md:w-24 h-1 mx-2 rounded-full transition-all ${
-                index < currentStep ? 'bg-blue-500' : 'bg-white/10'
-              }`}
-            />
-          )}
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 };

@@ -14,7 +14,8 @@ export default function Payment() {
   const [loanData, setLoanData] = useState(null);
   const [paymentAttempts, setPaymentAttempts] = useState(0);
   const navigate = useNavigate();
-  const intervalRef = useRef(null); // Store interval ID in a ref
+  const intervalRef = useRef(null);
+  const maxAttempts = 40; // ~2 minutes (3s interval)
 
   // Steps for the stepper
   const steps = ["Select Amount", "Check Eligibility", "Pay Fee", "Success"];
@@ -43,7 +44,6 @@ export default function Payment() {
   // Poll payment status with proper cleanup
   const checkPaymentStatus = (checkoutId) => {
     let attempts = 0;
-    const maxAttempts = 40; // ~2 minutes (3s interval)
 
     // Clear any existing interval
     if (intervalRef.current) {
@@ -97,7 +97,7 @@ export default function Payment() {
             title: "Payment Failed ❌",
             text: resultDesc || "Payment was cancelled or failed. Please try again.",
             icon: "error",
-            confirmButtonColor: "#ef4444",
+            confirmButtonColor: "#0ea5e9", // Changed to match theme
             allowOutsideClick: false,
           });
 
@@ -154,7 +154,7 @@ export default function Payment() {
         title: "Invalid Phone Number",
         text: "Please use a valid Kenyan phone number (e.g., 0712345678 or +254712345678)",
         icon: "error",
-        confirmButtonColor: "#ef4444",
+        confirmButtonColor: "#0ea5e9", // Changed to match theme
       });
       return;
     }
@@ -252,7 +252,7 @@ export default function Payment() {
         title: "Payment Error",
         text: errorMessage,
         icon: "error",
-        confirmButtonColor: "#ef4444",
+        confirmButtonColor: "#0ea5e9", // Changed to match theme
         allowOutsideClick: false,
       });
     }
@@ -269,7 +269,7 @@ export default function Payment() {
 
   if (!formData || !loanData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-white to-emerald-50">
         <Loader />
       </div>
     );
@@ -280,12 +280,12 @@ export default function Payment() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900"
+      className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-emerald-50"
     >
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
-        className="fixed top-6 left-6 flex items-center space-x-2 text-white/80 hover:text-white z-50 transition-colors"
+        className="fixed top-6 left-6 flex items-center space-x-2 text-sky-600 hover:text-sky-800 z-50 transition-colors"
       >
         <ChevronLeft size={20} />
         <span>Back</span>
@@ -302,54 +302,54 @@ export default function Payment() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="max-w-lg mx-auto glass-card rounded-2xl p-6 md:p-8"
+          className="max-w-lg mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8"
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
               Activate Your Loan
             </h1>
-            <p className="text-white/70 mt-2">
+            <p className="text-gray-600 mt-2">
               Pay the one-time processing fee to release your funds
             </p>
           </div>
 
           {/* Loan Summary */}
           <div className="space-y-4 mb-8">
-            <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-sm text-white/60 mb-1">Loan Amount</p>
-              <p className="text-3xl font-bold text-white">
+            <div className="bg-sky-50 rounded-xl p-4 text-center border border-sky-100">
+              <p className="text-sm text-sky-600 mb-1">Loan Amount</p>
+              <p className="text-3xl font-bold text-sky-800">
                 KES {loanData.loan_amount?.toLocaleString() || "0"}
               </p>
-              <div className="mt-2 inline-block px-3 py-1 bg-white/10 rounded-full text-xs text-white/80">
+              <div className="mt-2 inline-block px-3 py-1 bg-sky-100 rounded-full text-xs text-sky-700">
                 ✔ Pre-approved
               </div>
             </div>
 
-            <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-sm text-white/60 mb-1">Processing Fee</p>
-              <p className="text-2xl font-bold text-white">
+            <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
+              <p className="text-sm text-emerald-600 mb-1">Processing Fee</p>
+              <p className="text-2xl font-bold text-emerald-800">
                 KES {loanData.processing_fee?.toLocaleString() || "0"}
               </p>
-              <p className="text-xs text-white/50 mt-1">One-time fee</p>
+              <p className="text-xs text-emerald-800 mt-1">One-time fee</p>
             </div>
 
-            <div className="glass-card rounded-xl p-4 flex items-center space-x-3">
-              <div className="p-2 bg-white/10 rounded-full">
-                <Phone size={18} className="text-white" />
+            <div className="bg-white rounded-xl p-4 flex items-center space-x-3 border border-gray-100 shadow-sm">
+              <div className="p-2 bg-sky-50 rounded-full">
+                <Phone size={18} className="text-sky-600" />
               </div>
               <div>
-                <p className="text-sm text-white/60">M-Pesa Number</p>
-                <p className="font-medium text-white">{formData.phone_number}</p>
+                <p className="text-sm text-gray-500">M-Pesa Number</p>
+                <p className="font-medium text-gray-800">{formData.phone_number}</p>
               </div>
             </div>
           </div>
 
           {/* Security Notice */}
-          <div className="bg-white/5 rounded-lg p-4 mb-8 flex items-start space-x-3">
-            <ShieldCheck size={20} className="text-green-400 flex-shrink-0 mt-0.5" />
+          <div className="bg-sky-50/50 rounded-lg p-4 mb-8 border border-sky-100 flex items-start space-x-3">
+            <ShieldCheck size={20} className="text-sky-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-white/80">
+              <p className="text-sm text-gray-700">
                 <strong>Secure Payment:</strong> We use M-Pesa STK Push for your security.
                 You'll receive a prompt on your phone to enter your PIN.
                 No charges until you confirm.
@@ -363,7 +363,7 @@ export default function Payment() {
             whileTap={{ scale: 0.98 }}
             onClick={handlePay}
             disabled={loading}
-            className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="w-full py-4 bg-gradient-to-r from-sky-600 to-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {loading ? (
               <>
@@ -372,7 +372,7 @@ export default function Payment() {
               </>
             ) : (
               <>
-                <DollarSign size={20} />
+              
                 <span>Pay KES {loanData.processing_fee?.toLocaleString() || "0"} via M-Pesa</span>
               </>
             )}
@@ -380,14 +380,14 @@ export default function Payment() {
 
           {/* Payment Attempts Counter */}
           {paymentAttempts > 0 && (
-            <div className="mt-4 text-center text-xs text-white/60">
+            <div className="mt-4 text-center text-xs text-gray-500">
               <Clock size={14} className="inline-block mr-1" />
               Checking payment status... ({paymentAttempts}/{maxAttempts})
             </div>
           )}
 
           {/* Footer Note */}
-          <p className="text-center text-xs text-white/50 mt-6">
+          <p className="text-center text-xs text-gray-500 mt-6">
             🔒 Your payment is secured by M-Pesa. No charges until you enter your PIN.
           </p>
         </motion.div>

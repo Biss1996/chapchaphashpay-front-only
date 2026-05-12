@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Swal from "sweetalert2";
+
 import {
   CheckCircle,
   Clock,
@@ -13,77 +14,141 @@ import {
   TrendingUp,
   Calendar,
   ArrowRight,
-  User
+  User,
+  BadgeCheck,
+  Receipt,
 } from "lucide-react";
 
 export default function Success() {
-  const alertShown = useRef(false);
   const navigate = useNavigate();
-  const [showConfetti, setShowConfetti] = useState(false);
 
-  // Get data from sessionStorage with validation
-  const loanData = JSON.parse(sessionStorage.getItem("myLoan") || "{}");
-  const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
-  const paymentStatus = sessionStorage.getItem("payment_status");
+  const alertShown = useRef(false);
 
+  const [showConfetti, setShowConfetti] =
+    useState(true);
+
+  // SAFE STORAGE FETCH
+  const loanData = JSON.parse(
+    sessionStorage.getItem("myLoan") || "{}"
+  );
+
+  const userData = JSON.parse(
+    sessionStorage.getItem("userData") || "{}"
+  );
+
+  const paymentStatus =
+    sessionStorage.getItem("payment_status");
+
+  const paymentReference =
+    sessionStorage.getItem(
+      "payment_reference"
+    ) || `MKP-${Date.now()}`;
+
+  // VALIDATE ACCESS
   useEffect(() => {
-    // Security check: Redirect if user shouldn't be here
-    if (paymentStatus !== "completed" || Object.keys(loanData).length === 0) {
+    if (
+      paymentStatus !== "completed" ||
+      !loanData.loan_amount
+    ) {
       Swal.fire({
-        title: "Access Denied",
-        text: "You must complete payment to view this page.",
+        title: "Unauthorized Access",
+        text: "Complete payment first.",
         icon: "warning",
         confirmButtonColor: "#f59e0b",
-        allowOutsideClick: false
+        allowOutsideClick: false,
       }).then(() => {
         navigate("/");
       });
+
       return;
     }
 
+    // SHOW ALERT ONLY ONCE
     if (alertShown.current) return;
+
     alertShown.current = true;
 
-    // Trigger confetti animation
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 5000);
+    // STOP CONFETTI
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 5000);
 
-    // Show success modal
+    // SUCCESS POPUP
     Swal.fire({
-      title: "Payment Successful! 🎉",
+      title: "Payment Successful 🎉",
       html: `
         <div style="text-align:center">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
-          <p style="font-size: 1.1rem; margin-bottom: 1rem;">
+          <div style="font-size:60px;margin-bottom:10px;">
+            ✅
+          </div>
+
+          <p style="font-size:16px;">
             Your activation fee has been received successfully.
           </p>
-          <div style="background: #f0fdf4; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-            <p style="margin: 0; color: #166534;">
-              Your loan of <strong>KES ${(loanData.loan_amount || 0).toLocaleString()}</strong>
-              is now being processed.
+
+          <div style="
+            background:#ecfdf5;
+            padding:16px;
+            border-radius:12px;
+            margin-top:16px;
+          ">
+            <p style="margin:0;color:#065f46;">
+              Loan Amount:
+              <strong>
+                KES ${(
+                  loanData.loan_amount || 0
+                ).toLocaleString()}
+              </strong>
             </p>
           </div>
-          <p style="margin: 1rem 0; font-size: 0.9rem;">
-            You will receive confirmation within
-            <span style="color: #10b981; font-weight: bold;"> 3 business days</span>.
-          </p>
-          <p style="font-size: 0.9rem; color: #6b7280; margin-top: 1rem;">
-            Please keep your phone active for updates.
+
+          <p style="
+            margin-top:18px;
+            font-size:14px;
+            color:#6b7280;
+          ">
+            Your loan is now under processing.
           </p>
         </div>
       `,
       icon: "success",
       confirmButtonColor: "#10b981",
-      confirmButtonText: "View My Loan",
+      confirmButtonText:
+        "Continue to Dashboard",
       allowOutsideClick: false,
-    }).then((result) => {
-      if (result.isConfirmed) {
-        navigate("/dashboard");
-      }
+    }).then(() => {
+      navigate("/dashboard");
     });
   }, [navigate, loanData, paymentStatus]);
 
-  // Animation variants
+  // CALCULATIONS
+  const loanAmount = Number(
+    loanData.loan_amount || 0
+  );
+
+  const processingFee = Number(
+    loanData.processing_fee || 0
+  );
+
+  const interestRate = Number(
+    loanData.interest_rate || 10
+  );
+
+  const interest =
+    (loanAmount * interestRate) / 100;
+
+  const totalRepayment =
+    loanAmount + processingFee + interest;
+
+  const monthlyInstallment =
+    totalRepayment / 4;
+
+  const userName =
+    userData.name ||
+    userData.customer_name ||
+    "Customer";
+
+  // ANIMATIONS
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -96,62 +161,64 @@ export default function Success() {
 
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
-
-  const bounce = {
-    hidden: { opacity: 0, y: 50 },
     show: {
       opacity: 1,
       y: 0,
-      transition: {
-        type: "spring",
-        stiffness: 100,
-        damping: 10,
-      },
     },
   };
-
-  // Calculate repayment details with fallbacks
-  const loanAmount = parseInt(loanData.loan_amount || 0);
-  const processingFee = parseInt(loanData.processing_fee || 0);
-  const interestRate = parseInt(loanData.interest_rate || 10);
-  const totalRepayment = loanAmount + processingFee + Math.round(loanAmount * interestRate / 100);
-  const monthlyInstallment = Math.round(totalRepayment / 4);
-
-  // Format user name
-  const userName = userData.name || userData.customer_name || "Valued Customer";
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 relative overflow-hidden"
+      className="
+        min-h-screen
+        bg-gradient-to-br
+        from-emerald-50
+        via-white
+        to-sky-50
+        flex
+        items-center
+        justify-center
+        px-4
+        py-10
+        overflow-hidden
+        relative
+      "
     >
-      {/* Confetti animation */}
+      {/* CONFETTI */}
       {showConfetti && (
-        <div className="absolute inset-0 pointer-events-none z-0">
-          {[...Array(30)].map((_, i) => (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(40)].map((_, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: -100, x: Math.random() * 100 - 50 }}
+              initial={{
+                opacity: 0,
+                y: -100,
+                x:
+                  Math.random() * window.innerWidth,
+              }}
               animate={{
                 opacity: [0, 1, 0],
-                y: [0, 300, 500],
-                x: [Math.random() * 100 - 50, Math.random() * 100 - 50],
-                rotate: [0, 360],
-                scale: [0.5, 1, 0.5]
+                y: window.innerHeight + 100,
+                rotate: 360,
               }}
               transition={{
-                duration: 2 + Math.random() * 3,
-                delay: Math.random() * 2,
+                duration:
+                  3 + Math.random() * 3,
                 repeat: Infinity,
-                ease: "easeOut",
+                delay: Math.random() * 2,
               }}
-              className="absolute w-4 h-4 rounded-full"
+              className="
+                absolute
+                w-3
+                h-3
+                rounded-full
+              "
               style={{
-                backgroundColor: `hsl(${Math.random() * 360}, 70%, 50%)`,
+                backgroundColor: `hsl(${
+                  Math.random() * 360
+                },70%,50%)`,
               }}
             />
           ))}
@@ -159,171 +226,330 @@ export default function Success() {
       )}
 
       <motion.div
+        variants={container}
         initial="hidden"
         animate="show"
-        variants={container}
-        className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 text-center"
+        className="
+          relative
+          z-10
+          w-full
+          max-w-lg
+          bg-white
+          rounded-3xl
+          shadow-2xl
+          border
+          border-gray-100
+          p-6
+          md:p-8
+        "
       >
-        {/* Success Animation */}
+        {/* SUCCESS ICON */}
         <motion.div
-          variants={bounce}
-          className="flex justify-center mb-6"
+          variants={item}
+          className="flex justify-center"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 200,
-              damping: 10,
-            }}
-            className="w-24 h-24 bg-gradient-to-br from-emerald-100 to-sky-100 rounded-full flex items-center justify-center shadow-lg"
+          <div
+            className="
+              w-24
+              h-24
+              rounded-full
+              bg-gradient-to-br
+              from-emerald-100
+              to-sky-100
+              flex
+              items-center
+              justify-center
+              shadow-lg
+            "
           >
-            <CheckCircle size={48} className="text-emerald-600" />
-          </motion.div>
+            <CheckCircle
+              size={52}
+              className="text-emerald-600"
+            />
+          </div>
         </motion.div>
 
-        <motion.h1
-          variants={item}
-          className="text-3xl font-bold text-gray-800 mb-2"
-        >
-          Payment Confirmed! 🎉
-        </motion.h1>
-
-        <motion.p
-          variants={item}
-          className="text-gray-600 mb-8"
-        >
-          Your activation fee has been received successfully, {userName}.
-        </motion.p>
-
-        {/* Loan Summary Card */}
+        {/* TITLE */}
         <motion.div
           variants={item}
-          className="bg-gradient-to-br from-emerald-50 to-sky-50 rounded-2xl p-6 mb-8 border border-emerald-100"
+          className="text-center mt-6"
         >
-          <h3 className="font-bold text-emerald-800 mb-4">Your Loan Summary</h3>
+          <h1 className="text-3xl font-bold text-gray-800">
+            Payment Confirmed 🎉
+          </h1>
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <CreditCard size={18} className="text-emerald-600" />
-                <span className="text-gray-600">Loan Amount</span>
-              </div>
+          <p className="text-gray-600 mt-2">
+            Thank you, {userName}.
+          </p>
+        </motion.div>
+
+        {/* STATUS CARD */}
+        <motion.div
+          variants={item}
+          className="
+            mt-8
+            bg-emerald-50
+            border
+            border-emerald-100
+            rounded-2xl
+            p-5
+          "
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">
+              Status
+            </span>
+
+            <span
+              className="
+                flex
+                items-center
+                gap-1
+                text-emerald-700
+                font-semibold
+              "
+            >
+              <BadgeCheck size={18} />
+              Approved
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Loan Amount
+              </span>
+
               <span className="font-bold text-emerald-700">
-                KES {loanAmount.toLocaleString()}
+                KES{" "}
+                {loanAmount.toLocaleString()}
               </span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <Clock size={18} className="text-sky-600" />
-                <span className="text-gray-600">Processing Fee</span>
-              </div>
-              <span className="font-bold text-sky-700">
-                KES {processingFee.toLocaleString()}
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Processing Fee
+              </span>
+
+              <span className="font-semibold text-sky-700">
+                KES{" "}
+                {processingFee.toLocaleString()}
               </span>
             </div>
 
-            {interestRate > 0 && (
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp size={18} className="text-purple-600" />
-                  <span className="text-gray-600">Interest ({interestRate}%)</span>
-                </div>
-                <span className="font-bold text-purple-700">
-                  KES {(loanAmount * interestRate / 100).toLocaleString()}
-                </span>
-              </div>
-            )}
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Interest ({interestRate}%)
+              </span>
 
-            <div className="border-t border-emerald-200 pt-4 mt-4">
-              <div className="flex justify-between items-center font-bold">
-                <div className="flex items-center space-x-2">
-                  <Zap size={18} className="text-emerald-600" />
-                  <span className="text-emerald-800">Total Repayment</span>
-                </div>
-                <span className="text-emerald-700 text-lg">
-                  KES {totalRepayment.toLocaleString()}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Monthly installment: KES {monthlyInstallment.toLocaleString()}
-              </p>
+              <span className="font-semibold text-purple-700">
+                KES{" "}
+                {interest.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="border-t pt-4 flex justify-between">
+              <span className="font-bold text-gray-800">
+                Total Repayment
+              </span>
+
+              <span className="font-bold text-emerald-700">
+                KES{" "}
+                {Math.round(
+                  totalRepayment
+                ).toLocaleString()}
+              </span>
             </div>
           </div>
         </motion.div>
 
-        {/* Next Steps */}
+        {/* PAYMENT DETAILS */}
         <motion.div
           variants={item}
-          className="bg-blue-50 rounded-2xl p-6 mb-8 border border-blue-100"
+          className="
+            mt-6
+            bg-sky-50
+            rounded-2xl
+            p-5
+            border
+            border-sky-100
+          "
         >
-          <h3 className="font-bold text-blue-800 mb-4 flex items-center justify-center space-x-2">
-            <Clock size={20} />
-            <span>What Happens Next?</span>
+          <h3 className="font-bold text-sky-800 mb-4 flex items-center gap-2">
+            <Receipt size={18} />
+            Payment Details
           </h3>
 
-          <div className="space-y-4 text-left">
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Reference
+              </span>
+
+              <span className="font-medium">
+                {paymentReference}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Phone
+              </span>
+
+              <span className="font-medium">
+                {userData.phone_number ||
+                  "N/A"}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-600">
+                Monthly Installment
+              </span>
+
+              <span className="font-medium">
+                KES{" "}
+                {Math.round(
+                  monthlyInstallment
+                ).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* NEXT STEPS */}
+        <motion.div
+          variants={item}
+          className="
+            mt-6
+            bg-white
+            border
+            border-gray-100
+            rounded-2xl
+            p-5
+          "
+        >
+          <h3 className="font-bold text-gray-800 mb-4">
+            Next Steps
+          </h3>
+
+          <div className="space-y-4">
             {[
-              {
-                icon: <Phone size={18} className="text-blue-600" />,
-                text: "Keep your phone active for M-Pesa updates",
-              },
-              {
-                icon: <ShieldCheck size={18} className="text-blue-600" />,
-                text: "Your application is being securely reviewed",
-              },
-              {
-                icon: <User size={18} className="text-blue-600" />,
-                text: `We'll notify ${userName.split(' ')[0] || 'you'} via SMS`,
-              },
-              {
-                icon: <Calendar size={18} className="text-blue-600" />,
-                text: "You'll receive confirmation within 3 business days",
-              },
-            ].map((step, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className="flex-shrink-0 mt-0.5">{step.icon}</div>
-                <p className="text-sm text-gray-700">{step.text}</p>
+              "Your application is being reviewed.",
+              "Funds may reflect within 3 business days.",
+              "Keep your phone active for updates.",
+              "You will receive SMS confirmation shortly.",
+            ].map((text, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3"
+              >
+                <div
+                  className="
+                    w-6
+                    h-6
+                    rounded-full
+                    bg-emerald-100
+                    text-emerald-600
+                    flex
+                    items-center
+                    justify-center
+                    text-xs
+                    font-bold
+                  "
+                >
+                  {i + 1}
+                </div>
+
+                <p className="text-sm text-gray-700">
+                  {text}
+                </p>
               </div>
             ))}
           </div>
         </motion.div>
 
-        {/* Action Buttons */}
+        {/* ACTION BUTTONS */}
         <motion.div
           variants={item}
-          className="space-y-4"
+          className="mt-8 space-y-4"
         >
           <button
-            onClick={() => navigate("/dashboard")}
-            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-sky-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center space-x-2"
+            onClick={() =>
+              navigate("/dashboard")
+            }
+            className="
+              w-full
+              py-4
+              rounded-xl
+              bg-gradient-to-r
+              from-emerald-600
+              to-sky-600
+              text-white
+              font-bold
+              flex
+              items-center
+              justify-center
+              gap-2
+              hover:scale-[1.01]
+              transition
+            "
           >
-            <span>View My Loan</span>
+            <span>Go to Dashboard</span>
+
             <ArrowRight size={20} />
           </button>
 
           <button
             onClick={() => navigate("/")}
-            className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center space-x-2"
+            className="
+              w-full
+              py-4
+              rounded-xl
+              border-2
+              border-gray-200
+              font-semibold
+              text-gray-700
+              flex
+              items-center
+              justify-center
+              gap-2
+              hover:bg-gray-50
+              transition
+            "
           >
             <Home size={20} />
+
             <span>Return Home</span>
           </button>
         </motion.div>
 
-        {/* Footer Note */}
-        <motion.p
+        {/* FOOTER */}
+        <motion.div
           variants={item}
-          className="text-xs text-gray-500 mt-8 flex items-center justify-center space-x-4"
+          className="
+            mt-8
+            text-center
+            text-xs
+            text-gray-500
+          "
         >
-          <span className="flex items-center space-x-1">
-            <ShieldCheck size={14} className="text-emerald-500" />
-            <span>Secure • Fast • Reliable</span>
-          </span>
-          <span>© {new Date().getFullYear()} Mkopo Chapchap</span>
-        </motion.p>
+          <div className="flex items-center justify-center gap-2">
+            <ShieldCheck
+              size={14}
+              className="text-emerald-500"
+            />
+
+            <span>
+              Secure • Fast • Reliable
+            </span>
+          </div>
+
+          <p className="mt-2">
+            © {new Date().getFullYear()} Mkopo
+            Chapchap
+          </p>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
