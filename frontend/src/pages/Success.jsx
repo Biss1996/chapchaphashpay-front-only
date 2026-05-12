@@ -8,7 +8,7 @@ import {
   Phone,
   ShieldCheck,
   Zap,
-  Confetti,
+  PartyPopper,
   Home,
   CreditCard,
   TrendingUp,
@@ -19,7 +19,7 @@ import {
 export default function Success() {
   const alertShown = useRef(false);
   const navigate = useNavigate();
-  const [showConfetti, setShowConfetti] = useState(false);
+  const [showPartyPopper, setShowPartyPopper] = useState(false);
   const loanData = JSON.parse(sessionStorage.getItem("myLoan") || "{}");
   const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
 
@@ -27,9 +27,9 @@ export default function Success() {
     if (alertShown.current) return;
     alertShown.current = true;
 
-    // Trigger confetti animation
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 5000);
+    // Trigger PartyPopper animation
+    setShowPartyPopper(true);
+    setTimeout(() => setShowPartyPopper(false), 5000);
 
     Swal.fire({
       title: "Payment Successful! 🎉",
@@ -108,8 +108,8 @@ export default function Success() {
       transition={{ duration: 0.5 }}
       className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 relative overflow-hidden"
     >
-      {/* Confetti animation (CSS-based) */}
-      {showConfetti && (
+      {/* PartyPopper animation (CSS-based) */}
+      {showPartyPopper && (
         <div className="absolute inset-0 pointer-events-none z-0">
           {[...Array(20)].map((_, i) => (
             <motion.div
