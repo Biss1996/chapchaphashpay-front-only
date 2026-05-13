@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
-import { ChevronLeft, DollarSign, Phone, User, Loader2, ShieldCheck, Clock } from "lucide-react";
+import { ChevronLeft, DollarSign, Phone, ShieldCheck, Clock } from "lucide-react";
 import Loader from "../components/Loader";
 import Stepper from "../components/Stepper";
-import { initiateSTKPush, checkTransactionStatus } from "../services/api";
+import axios from "axios";
 
 export default function Payment() {
   const [loading, setLoading] = useState(false);
@@ -55,49 +55,60 @@ export default function Payment() {
       setPaymentAttempts(attempts);
 
       try {
-        const status = await checkTransactionStatus(checkoutId);
-        console.log("Payment status response:", status);
+        // Use the correct endpoint: /api/status (not /api/check-status)
+        const response = await axios.get(`/api/status?checkoutId=${checkoutId}`);
+        const { ResultCode, ResultDesc, status } = response.data;
 
-        // Handle PayHero's response format
-        const resultCode = String(status?.ResultCode ?? status?.result_code ?? "");
-        const responseCode = String(status?.ResponseCode ?? status?.response_code ?? "");
-        const resultDesc = status?.ResultDesc ?? status?.result_desc ?? "";
+        console.log("Payment status response:", response.data);
 
         // SUCCESS: PayHero returns ResultCode="0" for successful payments
-        if (resultCode === "0" || responseCode === "0") {
+        if (ResultCode === "0") {
           clearInterval(intervalRef.current);
           setLoading(false);
+          Swal.close();
 
           // Store payment confirmation
           sessionStorage.setItem("payment_status", "completed");
           sessionStorage.setItem("payment_reference", checkoutId);
           sessionStorage.setItem("payment_time", new Date().toISOString());
+          sessionStorage.setItem("myLoan", JSON.stringify(loanData));
+          sessionStorage.setItem("userData", JSON.stringify(formData));
 
-          // Close any open Swal
-          Swal.close();
+          // Show success toast
+          toast.success("Payment successful! Redirecting...", {
+            position: "top-center",
+            autoClose: 2000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: false,
+            draggable: true,
+          });
 
-          // Redirect to success page
-          navigate("/success", { replace: true });
+          // Redirect to success page after 2 seconds
+          setTimeout(() => {
+            navigate("/success", { replace: true });
+          }, 2000);
+
           return;
         }
 
         // PENDING: No response yet
-        if (!resultCode || resultCode === "null" || !responseCode || responseCode === "null") {
+        if (!ResultCode || ResultCode === "" || status === "PENDING") {
           console.log(`Payment pending... (Attempt ${attempts}/${maxAttempts})`);
           return;
         }
 
         // FAILURE: PayHero error codes
-        if (resultCode === "1032" || resultCode === "1" || resultCode === "2001" || responseCode === "1") {
+        if (ResultCode === "1032" || ResultCode === "1" || ResultCode === "2001" || status === "FAILED") {
           clearInterval(intervalRef.current);
           setLoading(false);
           Swal.close();
 
           await Swal.fire({
             title: "Payment Failed ❌",
-            text: resultDesc || "Payment was cancelled or failed. Please try again.",
+            text: ResultDesc || "Payment was cancelled or failed. Please try again.",
             icon: "error",
-            confirmButtonColor: "#0ea5e9", // Changed to match theme
+            confirmButtonColor: "#0ea5e9",
             allowOutsideClick: false,
           });
 
@@ -154,7 +165,7 @@ export default function Payment() {
         title: "Invalid Phone Number",
         text: "Please use a valid Kenyan phone number (e.g., 0712345678 or +254712345678)",
         icon: "error",
-        confirmButtonColor: "#0ea5e9", // Changed to match theme
+        confirmButtonColor: "#0ea5e9",
       });
       return;
     }
@@ -185,26 +196,26 @@ export default function Payment() {
           : `+254${formData.phone_number}`;
 
       // Initiate STK Push
-      const response = await initiateSTKPush(
-        formattedPhone,
-        loanData.processing_fee,
-        `LOAN-${Date.now()}-${formData.phone_number.slice(-4)}`
-      );
+      const response = await axios.post('/api/stkpush', {
+        phone_number: formattedPhone,
+        amount: loanData.processing_fee,
+        customer_name: formData.name || formData.customer_name || "Customer"
+      });
 
-      console.log("STK Push Response:", response);
+      console.log("STK Push Response:", response.data);
 
-      // Extract CheckoutRequestID (PayHero's standard format)
-      const checkoutId = response.CheckoutRequestID ||
-                        response.checkoutRequestID ||
-                        response.checkout_id ||
-                        response.CheckoutID;
+      // Extract CheckoutRequestID
+      const checkoutId = response.data.CheckoutRequestID ||
+                        response.data.checkoutRequestID ||
+                        response.data.checkout_id ||
+                        response.data.CheckoutID;
 
       if (!checkoutId) {
         throw new Error("No CheckoutRequestID received from PayHero. Please try again.");
       }
 
       // Update Swal to show phone check prompt
-          Swal.fire({
+      await Swal.fire({
         title: "Check Your Phone 📱",
         html: `
           <p>STK Push sent to <strong>${formattedPhone}</strong></p>
@@ -239,8 +250,8 @@ export default function Payment() {
           errorMessage = "Authentication failed. Please contact support.";
         } else if (error.response.status === 404) {
           errorMessage = "Payment service unavailable. Please try again later.";
-        } else if (error.response.data?.error_message) {
-          errorMessage = error.response.data.error_message;
+        } else if (error.response.data?.error) {
+          errorMessage = error.response.data.error;
         }
       } else if (error.message.includes("Network Error")) {
         errorMessage = "Network error. Please check your internet connection.";
@@ -252,7 +263,7 @@ export default function Payment() {
         title: "Payment Error",
         text: errorMessage,
         icon: "error",
-        confirmButtonColor: "#0ea5e9", // Changed to match theme
+        confirmButtonColor: "#0ea5e9",
         allowOutsideClick: false,
       });
     }
@@ -372,7 +383,7 @@ export default function Payment() {
               </>
             ) : (
               <>
-              
+                <DollarSign size={20} />
                 <span>Pay KES {loanData.processing_fee?.toLocaleString() || "0"} via M-Pesa</span>
               </>
             )}

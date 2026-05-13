@@ -1,4 +1,3 @@
-// frontend/api/status.js
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -7,17 +6,15 @@ export default async function handler(req, res) {
   try {
     const { checkoutId } = req.query;
 
-    // ✅ TEMPORARY: Simulate success for your test CheckoutRequestID
-    if (checkoutId === "ws_CO_13052026142743626727783444") {
-      return res.status(200).json({
-        ResultCode: "0",
-        ResultDesc: "Payment successful (simulated)",
-        status: "SUCCESS"
-      });
+    if (!checkoutId) {
+      return res.status(400).json({ error: "Checkout ID required" });
     }
 
-    // Fallback to normal logic
-    const payment = global.payments?.[checkoutId];
+    // Initialize global.payments if it doesn't exist
+    global.payments = global.payments || {};
+
+    const payment = global.payments[checkoutId];
+
     if (!payment) {
       return res.status(200).json({
         ResultCode: "",
@@ -27,8 +24,8 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      ResultCode: payment.status === "SUCCESS" ? "0" : "",
-      ResultDesc: payment.status === "SUCCESS" ? "Payment successful" : "Payment pending",
+      ResultCode: payment.status === "SUCCESS" ? "0" : payment.status === "FAILED" ? "1032" : "",
+      ResultDesc: payment.ResultDesc || (payment.status === "SUCCESS" ? "Payment successful" : "Payment pending"),
       status: payment.status
     });
 
