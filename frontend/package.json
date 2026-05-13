@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "lint": "eslint . --ext .js,.jsx",
+    "lint:fix": "eslint . --ext .js,.jsx --fix",
+    "preview": "vite preview",
+    "analyze": "vite build && open dist/bundle-analysis.html"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.0.10",
     "@tailwindcss/vite": "^4.2.4",
     "axios": "^1.15.2",
     "framer-motion": "^12.38.0",
@@ -20,19 +23,48 @@
     "react-router-dom": "^7.14.0",
     "react-toastify": "^11.0.5",
     "sweetalert2": "^11.26.24",
-    "tailwindcss": "^4.2.4"
+    "tailwindcss": "^3.4.10"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@rollup/plugin-alias": "^5.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "postcss": "^8.4.49",
+    "rollup-plugin-visualizer": "^5.12.0",
     "terser": "^5.46.2",
-    "vite": "^8.0.4",
+    "vite": "^5.4.10",
     "vite-plugin-javascript-obfuscator": "^3.1.0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:react-hooks/recommended",
+      "plugin:react-refresh/recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
+    },
+    "env": {
+      "browser": true,
+      "es2021": true
+    },
+    "rules": {
+      "react-refresh/only-export-components": [
+        "warn",
+        {
+          "allowConstantExport": true
+        }
+      ],
+      "react-hooks/exhaustive-deps": "warn"
+    }
   }
 }

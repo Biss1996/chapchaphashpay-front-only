@@ -1,12 +1,35 @@
 import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 import obfuscator from "vite-plugin-javascript-obfuscator";
 
 export default defineConfig({
   plugins: [
-    tailwindcss(),
-
-    // 🔒 Obfuscate production build only
+    react(),
+    // Use Tailwind CSS v3 plugin directly
+    {
+      name: "tailwindcss",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url.endsWith(".css")) {
+            res.setHeader("Content-Type", "text/css");
+          }
+          next();
+        });
+      },
+      transformIndexHtml: {
+        order: "pre",
+        handler(html) {
+          return html.replace(
+            /<head>/,
+            `<head>
+              <link href="/src/input.css" rel="stylesheet">
+            `
+          );
+        },
+      },
+    },
     obfuscator({
       apply: "build",
       options: {
@@ -25,14 +48,25 @@ export default defineConfig({
       },
     }),
   ],
-
+  css: {
+    postcss: {
+      plugins: [tailwindcss, autoprefixer],
+    },
+  },
   build: {
-    sourcemap: false, // ❌ prevents easy reverse engineering
-    minify: "terser", // 🔥 stronger minification
+    sourcemap: false,
+    minify: "terser",
     terserOptions: {
       compress: {
         drop_console: true,
         drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+        },
       },
     },
   },
