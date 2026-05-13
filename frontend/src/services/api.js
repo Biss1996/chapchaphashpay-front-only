@@ -170,7 +170,7 @@ export const checkTransactionStatus =
       );
 
       const response = await api.get(
-        `/check-status?checkoutId=${checkoutId}`
+        `/status?checkoutId=${checkoutId}`
       );
 
       console.log(
