@@ -151,7 +151,7 @@ export default function Dashboard() {
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <CreditCard size={20} />
             </div>
-            <span className="font-bold text-xl">Mkopo Chapchap</span>
+            <span className="font-bold text-xl">Mwananchi Credit</span>
           </div>
 
           <div className="flex items-center space-x-4">

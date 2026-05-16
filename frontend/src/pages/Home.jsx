@@ -131,7 +131,7 @@ export default function Home() {
             variants={staggerItem}
             className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
           >
-            Why Choose <span className="text-blue-600">Mkopo Chapchap?</span>
+            Why Choose <span className="text-blue-600">Mwananchi Credit?</span>
           </motion.h2>
           <motion.p
             variants={staggerItem}
@@ -357,7 +357,7 @@ export default function Home() {
           transition={{ delay: 0.6 }}
           className="text-white/70"
         >
-          © {new Date().getFullYear()} Mkopo Chapchap. All rights reserved.
+          © {new Date().getFullYear()} Mwananchi Credit. All rights reserved.
         </motion.p>
       </footer>
     </div>

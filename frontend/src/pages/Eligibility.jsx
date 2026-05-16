@@ -189,7 +189,7 @@ export default function Eligibility() {
                         <li>• Incomplete profile information</li>
                       </ul>
                     </div>
-                    <p class="mt-4 text-gray-600">You can reapply in 30 days</p>
+                    <p class="mt-4 text-gray-600">You can reapply in 30 seconds</p>
                   </div>
                 `,
                 confirmButtonText: "Try Again",
