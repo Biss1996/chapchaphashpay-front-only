@@ -1,94 +1,132 @@
-import axios from 'axios';
+
+import axios from "axios";
+
+function normalizeKenyanPhone(phone) {
+  let cleaned = String(phone || "").replace(/\D/g, "");
+
+  if (cleaned.startsWith("0")) {
+    cleaned = "254" + cleaned.slice(1);
+  } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
+    cleaned = "254" + cleaned;
+  }
+
+  if (!/^254[17]\d{8}$/.test(cleaned)) {
+    throw new Error("Invalid Kenyan phone number. Use 07XXXXXXXX or 01XXXXXXXX.");
+  }
+
+  return cleaned;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
   }
 
   try {
-    const { phone_number, amount, customer_name = "Customer" } = req.body;
+    const {
+      phone_number,
+      amount,
+      customer_name = "Customer"
+    } = req.body || {};
 
-    if (!phone_number || !amount) {
-      return res.status(400).json({ error: "phone_number and amount required" });
+    if (!phone_number || amount === undefined || amount === null) {
+      return res.status(400).json({
+        error: "phone_number and amount are required"
+      });
     }
 
-    const formattedPhone = phone_number.startsWith("+254")
-      ? phone_number
-      : phone_number.startsWith("0")
-        ? `+254${phone_number.slice(1)}`
-        : `+254${phone_number}`;
-
-    const regex = /^\+254[17]\d{8}$/;
-    if (!regex.test(formattedPhone)) {
-      return res.status(400).json({ error: "Invalid Kenyan phone number" });
-    }
+    const formattedPhone = normalizeKenyanPhone(phone_number);
 
     const parsedAmount = Number(amount);
-    if (isNaN(parsedAmount) || parsedAmount < 10) {
-      return res.status(400).json({ error: "Amount must be at least 10 KES" });
+
+    if (!Number.isInteger(parsedAmount) || parsedAmount < 10) {
+      return res.status(400).json({
+        error: "Amount must be a whole number of at least 10 KES"
+      });
     }
 
-    if (!process.env.PAYHERO_AUTH || !process.env.CHANNEL_ID) {
-      return res.status(500).json({ error: "Server misconfiguration" });
+    const rawToken = process.env.PAYHERO_AUTH_TOKEN;
+    const channelId = Number(process.env.PAYHERO_CHANNEL_ID);
+
+    if (!rawToken || !Number.isInteger(channelId) || channelId <= 0) {
+      console.error("Missing PayHero environment variables");
+
+      return res.status(500).json({
+        error: "Payment service is not configured"
+      });
     }
+
+    // Avoid accidentally adding Basic twice.
+    const authorization = rawToken.trim().startsWith("Basic ")
+      ? rawToken.trim()
+      : `Basic ${rawToken.trim()}`;
 
     const external_reference = `LOAN-${Date.now()}`;
 
-    const callbackUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/api/callback`
-      : "https://chapchaphashpay.vercel.app/api/callback";
+    const payload = {
+      amount: parsedAmount,
+      phone_number: formattedPhone,
+      channel_id: channelId,
+      provider: "m-pesa",
+      external_reference,
+      customer_name
+    };
+
+    // Only include callback URL if explicitly configured.
+    if (process.env.PAYHERO_CALLBACK_URL) {
+      payload.callback_url = process.env.PAYHERO_CALLBACK_URL;
+    }
 
     const response = await axios.post(
       "https://backend.payhero.co.ke/api/v2/payments",
-      {
-        amount: parsedAmount,
-        phone_number: formattedPhone,
-        channel_id: Number(process.env.CHANNEL_ID),
-        provider: "m-pesa",
-        external_reference,
-        customer_name,
-        callback_url: callbackUrl
-      },
+      payload,
       {
         headers: {
-          Authorization: `Basic ${process.env.PAYHERO_AUTH}`,
-          "Content-Type": "application/json",
+          Authorization: authorization,
+          "Content-Type": "application/json"
         },
-        timeout: 10000,
+        timeout: 20000
       }
     );
 
-    const checkoutId = response.data.CheckoutRequestID;
-    if (!checkoutId) {
-      return res.status(500).json({ error: "No CheckoutRequestID received from PayHero" });
-    }
+    const reference = response.data?.reference;
+    const checkoutId = response.data?.CheckoutRequestID;
 
-    // Initialize global payments store
-    global.payments = global.payments || {};
-    global.payments[checkoutId] = {
-      status: "PENDING",
-      amount: parsedAmount,
-      phone: formattedPhone,
-      customer_name,
-      createdAt: Date.now(),
-      reference: response.data.reference
-    };
+    if (!reference) {
+      console.error("PayHero response missing reference:", response.data);
+
+      return res.status(502).json({
+        error: "PayHero did not return a transaction reference"
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      CheckoutRequestID: checkoutId,
-      reference: response.data.reference,
-      status: "QUEUED"
+      status: response.data.status || "QUEUED",
+      reference,
+      checkout_request_id: checkoutId || null,
+      external_reference,
+      message: "STK Push request submitted successfully"
     });
 
   } catch (error) {
-    console.error("STK PUSH ERROR:", error.response?.data || error.message);
-    return res.status(500).json({
+    const payheroError = error.response?.data;
+
+    console.error(
+      "PAYHERO STK ERROR:",
+      payheroError || error.message
+    );
+
+    return res.status(error.response?.status || 500).json({
       success: false,
-      error: error.response?.data?.error_message ||
-            error.response?.data ||
-            error.message ||
-            "Failed to initiate STK Push"
+      error:
+        payheroError?.error_message ||
+        payheroError?.message ||
+        (typeof payheroError === "string" ? payheroError : null) ||
+        error.message ||
+        "Failed to initiate STK Push"
     });
   }
 }
