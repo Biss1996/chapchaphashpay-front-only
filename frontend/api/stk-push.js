@@ -112,21 +112,20 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    const payheroError = error.response?.data;
+  const payheroStatus = error.response?.status;
+  const payheroData = error.response?.data;
 
-    console.error(
-      "PAYHERO STK ERROR:",
-      payheroError || error.message
-    );
+  console.error("PAYHERO STK PUSH ERROR:", {
+    status: payheroStatus,
+    data: payheroData,
+    message: error.message,
+  });
 
-    return res.status(error.response?.status || 500).json({
-      success: false,
-      error:
-        payheroError?.error_message ||
-        payheroError?.message ||
-        (typeof payheroError === "string" ? payheroError : null) ||
-        error.message ||
-        "Failed to initiate STK Push"
-    });
-  }
+  return res.status(502).json({
+    success: false,
+    error: "PayHero rejected the STK Push request.",
+    details: payheroData || error.message,
+    payhero_status: payheroStatus || null,
+  });
+}
 }

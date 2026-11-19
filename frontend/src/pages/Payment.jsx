@@ -323,15 +323,19 @@ export default function Payment() {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
 
-      if (!response.ok || data.success !== true || !data.reference) {
-        throw new Error(
-          data.error ||
-data.message ||
-"PayHero did not accept the STK Push request."
-        );
-      }
+if (!response.ok || !data.success) {
+  console.error("STK PUSH RESPONSE:", data);
+
+  throw new Error(
+    typeof data.details === "string"
+      ? data.details
+      : data.details?.message ||
+        data.error ||
+        "PayHero could not initiate the payment."
+  );
+}
 
       // This is PayHero's transaction reference, NOT CheckoutRequestID.
       const reference = data.reference;
