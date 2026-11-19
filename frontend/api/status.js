@@ -3,7 +3,7 @@ const PAYHERO_STATUS_URL =
   "https://backend.payhero.co.ke/api/v2/transaction-status";
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
 
   if (req.method !== "GET") {
     return res.status(405).json({
@@ -30,6 +30,10 @@ export default async function handler(req, res) {
     });
   }
 
+  const authorization = authToken.trim().startsWith("Basic ")
+    ? authToken.trim()
+    : `Basic ${authToken.trim()}`;
+
   try {
     const url = new URL(PAYHERO_STATUS_URL);
     url.searchParams.set("reference", reference);
@@ -37,7 +41,8 @@ export default async function handler(req, res) {
     const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
-        Authorization: authToken
+        Authorization: authorization,
+        "Content-Type": "application/json"
       },
       signal: AbortSignal.timeout(15000)
     });
@@ -45,10 +50,11 @@ export default async function handler(req, res) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      console.error("PayHero status error:", response.status);
+
       return res.status(502).json({
         success: false,
-        message: "Unable to retrieve payment status",
-        provider_status: response.status
+        message: "Unable to retrieve payment status"
       });
     }
 
@@ -66,13 +72,16 @@ export default async function handler(req, res) {
       status,
       reference: data.reference,
       provider: data.provider,
+      amount: data.amount,
+      external_reference: data.external_reference,
       transaction_date: data.transaction_date,
       payment_reference: data.payment_reference,
-      provider_reference: data.provider_reference,
       third_party_reference: data.third_party_reference
     });
 
   } catch (error) {
+    console.error("Payment status error:", error.message);
+
     return res.status(502).json({
       success: false,
       message: "Payment status service unavailable"

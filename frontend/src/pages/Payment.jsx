@@ -327,7 +327,9 @@ export default function Payment() {
 
       if (!response.ok || data.success !== true || !data.reference) {
         throw new Error(
-          data.message || "PayHero did not accept the STK Push request."
+          data.error ||
+data.message ||
+"PayHero did not accept the STK Push request."
         );
       }
 
